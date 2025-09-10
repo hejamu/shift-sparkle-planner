@@ -13,9 +13,13 @@ export async function setupDatabase() {
   try {
     await connection.ping();
     console.log('Connected to MySQL database.');
-  } catch (err) {
-    console.error('Failed to connect:', err.message);
-    process.exit(1);
+    } catch (err) {
+      if (err instanceof Error) {
+        console.error('Failed to connect:', err.message);
+      } else {
+        console.error('Failed to connect:', err);
+      }
+      process.exit(1);
   }
 
   // Create employees table

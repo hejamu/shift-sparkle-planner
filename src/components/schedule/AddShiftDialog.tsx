@@ -15,7 +15,7 @@ const shiftSchema = z.object({
   employee: z.string().optional(),
   date: z.string().min(1, "Please select a date"),
   time: z.string().min(1, "Please select shift time"),
-  role: z.string().min(1, "Please select a role"),
+  shiftType: z.string().min(1, "Please select a shift type"),
   // ...removed location from schema...
   notes: z.string().optional(),
 });
@@ -35,7 +35,7 @@ const AddShiftDialog = ({ children, selectedDate, onShiftAdded }: AddShiftDialog
 
   // Dynamic employees, roles, locations
   const [employees, setEmployees] = useState<{ id: string; name: string; role: string }[]>([]);
-  const [roles, setRoles] = useState<string[]>([]);
+  const [shiftTypes, setShiftTypes] = useState<{ id: string; name: string; color: string }[]>([]);
   // ...removed locations state...
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,10 +57,10 @@ const AddShiftDialog = ({ children, selectedDate, onShiftAdded }: AddShiftDialog
         if (!empRes.ok) throw new Error("Failed to fetch employees");
         const empData = await empRes.json();
         setEmployees(empData);
-        const roleRes = await fetch("/api/roles");
-        if (!roleRes.ok) throw new Error("Failed to fetch roles");
-        const roleData = await roleRes.json();
-        setRoles(roleData);
+  const shiftTypeRes = await fetch("/api/shift-types");
+  if (!shiftTypeRes.ok) throw new Error("Failed to fetch shift types");
+  const shiftTypeData = await shiftTypeRes.json();
+  setShiftTypes(shiftTypeData);
   // ...removed location fetch logic...
       } catch (err: any) {
         setError(err.message || "Failed to load data");
@@ -76,7 +76,7 @@ const AddShiftDialog = ({ children, selectedDate, onShiftAdded }: AddShiftDialog
   employee: "unassigned",
       date: selectedDate ? selectedDate.toISOString().split('T')[0] : "",
   time: "",
-      role: "",
+  shiftType: "",
   // ...removed location from defaultValues...
       notes: "",
     },
@@ -166,19 +166,21 @@ const AddShiftDialog = ({ children, selectedDate, onShiftAdded }: AddShiftDialog
               />
               <FormField
                 control={form.control}
-                name="role"
+                name="shiftType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Role</FormLabel>
+                    <FormLabel>Shift Type</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select role" />
+                          <SelectValue placeholder="Select shift type" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {roles.map(role => (
-                          <SelectItem key={role} value={role}>{role}</SelectItem>
+                        {shiftTypes.map(st => (
+                          <SelectItem key={st.id} value={st.id}>
+                            <span style={{ background: st.color, color: '#fff', padding: '2px 8px', borderRadius: '4px' }}>{st.name}</span>
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
