@@ -1,13 +1,16 @@
 import { Calendar, Clock, Users, BarChart3, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useLocation, Link } from "react-router-dom";
 
 const Header = () => {
+  const location = useLocation();
+  
   const navItems = [
-    { icon: BarChart3, label: "Dashboard", active: true },
-    { icon: Calendar, label: "Schedule" },
-    { icon: Users, label: "Employees" },
-    { icon: Clock, label: "Time Tracking" },
-    { icon: Settings, label: "Settings" },
+    { icon: BarChart3, label: "Dashboard", path: "/" },
+    { icon: Calendar, label: "Schedule", path: "/schedule" },
+    { icon: Users, label: "Employees", path: "/employees" },
+    { icon: Clock, label: "Time Tracking", path: "/time-tracking" },
+    { icon: Settings, label: "Settings", path: "/settings" },
   ];
 
   return (
@@ -26,12 +29,15 @@ const Header = () => {
               {navItems.map((item) => (
                 <Button
                   key={item.label}
-                  variant={item.active ? "default" : "ghost"}
+                  variant={location.pathname === item.path ? "default" : "ghost"}
                   size="sm"
                   className="h-9 px-3 transition-smooth"
+                  asChild
                 >
-                  <item.icon className="h-4 w-4 mr-2" />
-                  {item.label}
+                  <Link to={item.path}>
+                    <item.icon className="h-4 w-4 mr-2" />
+                    {item.label}
+                  </Link>
                 </Button>
               ))}
             </nav>
