@@ -4,9 +4,76 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import AddShiftDialog from "./AddShiftDialog";
+
+interface Shift {
+  id: number;
+  employee: string;
+  role: string;
+  start: string;
+  end: string;
+  day: number;
+  color: string;
+  location?: string;
+}
 
 const WeeklyCalendar = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [shifts, setShifts] = useState<Shift[]>([]);
+
+  // Employee data for mapping IDs to names
+  const employees = [
+    { id: "1", name: "Sarah Johnson" },
+    { id: "2", name: "Mike Chen" },
+    { id: "3", name: "Emily Davis" },
+    { id: "4", name: "David Wilson" },
+    { id: "5", name: "Lisa Brown" },
+    { id: "6", name: "John Smith" },
+    { id: "7", name: "Anna Garcia" },
+  ];
+
+  const getEmployeeName = (id: string) => {
+    return employees.find(emp => emp.id === id)?.name || "Unknown Employee";
+  };
+
+  // Color rotation for new shifts
+  const shiftColors = [
+    "bg-primary",
+    "bg-accent", 
+    "bg-success",
+    "bg-warning",
+    "bg-destructive",
+  ];
+
+  const getNextShiftColor = () => {
+    return shiftColors[shifts.length % shiftColors.length];
+  };
+
+  const handleAddShift = (shiftData: any) => {
+    const shiftDate = new Date(shiftData.date);
+    const dayOfWeek = shiftDate.getDay();
+    
+    const newShift: Shift = {
+      id: shifts.length + 1,
+      employee: getEmployeeName(shiftData.employee),
+      role: shiftData.role,
+      start: new Date(`2000-01-01T${shiftData.startTime}`).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }),
+      end: new Date(`2000-01-01T${shiftData.endTime}`).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit', 
+        hour12: false,
+      }),
+      day: dayOfWeek,
+      color: getNextShiftColor(),
+      location: shiftData.location,
+    };
+
+    setShifts([...shifts, newShift]);
+  };
   
   // Get the start of the week (Sunday)
   const getWeekStart = (date: Date) => {
@@ -29,8 +96,8 @@ const WeeklyCalendar = () => {
     setCurrentDate(newDate);
   };
 
-  // Sample shift data
-  const shifts = [
+  // Sample static shift data
+  const staticShifts: Shift[] = [
     {
       id: 1,
       employee: "Sarah Johnson",
@@ -77,6 +144,9 @@ const WeeklyCalendar = () => {
       color: "bg-accent",
     },
   ];
+
+  // Combine static shifts with dynamic shifts for display
+  const allShifts = [...staticShifts, ...shifts];
 
   const formatDateHeader = (date: Date) => {
     const today = new Date();
@@ -138,10 +208,12 @@ const WeeklyCalendar = () => {
             Filter
           </Button>
           
-          <Button variant="hero" size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Shift
-          </Button>
+          <AddShiftDialog onShiftAdded={handleAddShift}>
+            <Button variant="hero" size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Shift
+            </Button>
+          </AddShiftDialog>
         </div>
       </div>
 
@@ -180,7 +252,7 @@ const WeeklyCalendar = () => {
                 key={dayIndex}
                 className="border-r last:border-r-0 p-2 space-y-2 min-h-96"
               >
-                {shifts
+                {allShifts
                   .filter((shift) => shift.day === dayIndex)
                   .map((shift) => (
                     <div
@@ -192,14 +264,22 @@ const WeeklyCalendar = () => {
                       </div>
                       <div className="text-xs">{shift.employee}</div>
                       <div className="text-xs opacity-90">{shift.role}</div>
+                      {shift.location && (
+                        <div className="text-xs opacity-75">{shift.location}</div>
+                      )}
                     </div>
                   ))}
                 
                 {/* Add shift button for empty days */}
-                {shifts.filter((shift) => shift.day === dayIndex).length === 0 && (
-                  <button className="w-full h-12 border-2 border-dashed border-muted hover:border-primary hover:bg-primary/5 rounded-md transition-smooth flex items-center justify-center text-muted-foreground hover:text-primary">
-                    <Plus className="h-4 w-4" />
-                  </button>
+                {allShifts.filter((shift) => shift.day === dayIndex).length === 0 && (
+                  <AddShiftDialog 
+                    selectedDate={weekDays[dayIndex]} 
+                    onShiftAdded={handleAddShift}
+                  >
+                    <button className="w-full h-12 border-2 border-dashed border-muted hover:border-primary hover:bg-primary/5 rounded-md transition-smooth flex items-center justify-center text-muted-foreground hover:text-primary">
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </AddShiftDialog>
                 )}
               </div>
             ))}
