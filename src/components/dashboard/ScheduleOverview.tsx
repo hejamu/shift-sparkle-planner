@@ -9,7 +9,7 @@ const ScheduleOverview = () => {
       employee: "Sarah Johnson",
       role: "Manager",
       time: "8:00 AM - 4:00 PM",
-      location: "Front Desk",
+  // ...removed location...
       status: "active",
     },
     {
@@ -17,7 +17,7 @@ const ScheduleOverview = () => {
       employee: "Mike Chen",
       role: "Sales Associate",
       time: "10:00 AM - 6:00 PM",
-      location: "Sales Floor",
+  // ...removed location...
       status: "scheduled",
     },
     {
@@ -25,7 +25,7 @@ const ScheduleOverview = () => {
       employee: "Emily Davis",
       role: "Cashier",
       time: "2:00 PM - 10:00 PM",
-      location: "Register 2",
+  // ...removed location...
       status: "scheduled",
     },
     {
@@ -33,7 +33,7 @@ const ScheduleOverview = () => {
       employee: "David Wilson",
       role: "Stock Associate",
       time: "6:00 PM - 12:00 AM",
-      location: "Warehouse",
+  // ...removed location...
       status: "pending",
     },
   ];
@@ -80,7 +80,7 @@ const ScheduleOverview = () => {
                 <p className="text-sm font-medium text-foreground">{shift.time}</p>
                 <div className="flex items-center text-xs text-muted-foreground">
                   <MapPin className="h-3 w-3 mr-1" />
-                  {shift.location}
+                  {/* Removed location display */}
                 </div>
               </div>
               <Badge className={getStatusColor(shift.status)} variant="secondary">

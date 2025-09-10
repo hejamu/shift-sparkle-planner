@@ -10,12 +10,12 @@ interface Shift {
   id: number;
   employee: string;
   role: string;
-  start: string;
-  end: string;
+  time: string;
+  duration: number;
   day: number;
   color: string;
-  location?: string;
 }
+
 
 const WeeklyCalendar = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -53,23 +53,15 @@ const WeeklyCalendar = () => {
     const shiftDate = new Date(shiftData.date);
     const dayOfWeek = shiftDate.getDay();
     
+    const defaultDuration = 8; // hours, can be changed as needed
     const newShift: Shift = {
       id: shifts.length + 1,
       employee: getEmployeeName(shiftData.employee),
       role: shiftData.role,
-      start: new Date(`2000-01-01T${shiftData.startTime}`).toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      }),
-      end: new Date(`2000-01-01T${shiftData.endTime}`).toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit', 
-        hour12: false,
-      }),
+      time: shiftData.time,
+      duration: defaultDuration,
       day: dayOfWeek,
       color: getNextShiftColor(),
-      location: shiftData.location,
     };
 
     setShifts([...shifts, newShift]);
@@ -102,8 +94,8 @@ const WeeklyCalendar = () => {
       id: 1,
       employee: "Sarah Johnson",
       role: "Manager",
-      start: "08:00",
-      end: "16:00",
+      time: "08:00",
+      duration: 8,
       day: 1, // Monday
       color: "bg-primary",
     },
@@ -111,8 +103,8 @@ const WeeklyCalendar = () => {
       id: 2,
       employee: "Mike Chen",
       role: "Sales",
-      start: "10:00",
-      end: "18:00",
+      time: "10:00",
+      duration: 8,
       day: 1,
       color: "bg-accent",
     },
@@ -120,8 +112,8 @@ const WeeklyCalendar = () => {
       id: 3,
       employee: "Emily Davis",
       role: "Cashier",
-      start: "14:00",
-      end: "22:00",
+      time: "14:00",
+      duration: 8,
       day: 2, // Tuesday
       color: "bg-success",
     },
@@ -129,8 +121,8 @@ const WeeklyCalendar = () => {
       id: 4,
       employee: "David Wilson",
       role: "Stock",
-      start: "06:00",
-      end: "14:00",
+      time: "06:00",
+      duration: 8,
       day: 3, // Wednesday
       color: "bg-warning",
     },
@@ -138,8 +130,8 @@ const WeeklyCalendar = () => {
       id: 5,
       employee: "Lisa Brown",
       role: "Cashier",
-      start: "12:00",
-      end: "20:00",
+      time: "12:00",
+      duration: 8,
       day: 4, // Thursday
       color: "bg-accent",
     },
@@ -260,13 +252,11 @@ const WeeklyCalendar = () => {
                       className={`${shift.color} text-white p-2 rounded-md shadow-sm hover:shadow-hover transition-smooth cursor-pointer`}
                     >
                       <div className="text-xs font-medium mb-1">
-                        {shift.start} - {shift.end}
+                        {shift.time} ({shift.duration}h)
                       </div>
                       <div className="text-xs">{shift.employee}</div>
                       <div className="text-xs opacity-90">{shift.role}</div>
-                      {shift.location && (
-                        <div className="text-xs opacity-75">{shift.location}</div>
-                      )}
+                      {/* Removed location display */}
                     </div>
                   ))}
                 
