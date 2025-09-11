@@ -7,13 +7,15 @@
     "skipLibCheck": true,
 
     /* Bundler mode */
-  "moduleResolution": "node",
+    "moduleResolution": "node",
     "isolatedModules": true,
     "moduleDetection": "force",
-  "noEmit": false,
-  "outDir": "dist",
+    "noEmit": false,
+    "outDir": "dist",
     "jsx": "react-jsx",
-
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
     /* Linting */
     "strict": false,
     "noUnusedLocals": false,
@@ -26,5 +28,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "src/server/*"]
+  "include": ["src"]
 }

@@ -1,17 +1,38 @@
 import { Calendar, Clock, Users, BarChart3, Settings } from "lucide-react";
+import LanguageSwitcher from "../LanguageSwitcher";
 import { Button } from "@/components/ui/button";
 import { useLocation, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 const Header = () => {
   const location = useLocation();
-  
-  const navItems = [
-    { icon: BarChart3, label: "Dashboard", path: "/" },
-    { icon: Calendar, label: "Schedule", path: "/schedule" },
-    { icon: Users, label: "Employees", path: "/employees" },
-    { icon: Clock, label: "Time Tracking", path: "/time-tracking" },
-    { icon: Settings, label: "Settings", path: "/settings" },
-  ];
+  const [user, setUser] = useState<{ username: string; role: string } | null>(null);
+
+  // Only show Schedule for employees
+  const navItems = user && user.role === "employee"
+    ? [
+        { icon: Calendar, label: "Schedule", path: "/schedule" },
+        { icon: Settings, label: "Settings", path: "/employee-settings" },
+      ]
+    : [
+        { icon: BarChart3, label: "Dashboard", path: "/" },
+        { icon: Calendar, label: "Schedule", path: "/schedule" },
+        { icon: Users, label: "Employees", path: "/employees" },
+  { icon: Settings, label: "Administration", path: "/administration" },
+      ];
+
+  useEffect(() => {
+    const stored = localStorage.getItem("user");
+    if (stored) {
+      try {
+        setUser(JSON.parse(stored));
+      } catch {
+        setUser(null);
+      }
+    } else {
+      setUser(null);
+    }
+  }, [location]);
 
   return (
     <header className="border-b bg-card shadow-card">
@@ -43,14 +64,26 @@ const Header = () => {
             </nav>
           </div>
 
-          <div className="flex items-center space-x-3">
-            <Button variant="outline" size="sm">
-              <Clock className="h-4 w-4 mr-2" />
-              Clock In
-            </Button>
-            <Button variant="hero" size="sm">
-              Add Shift
-            </Button>
+          {/* Removed Clock In and Add Shift buttons */}
+
+          <div className="flex items-center space-x-4">
+            {user && (
+              <span className="text-muted-foreground">{user.username} ({user.role})</span>
+            )}
+            <LanguageSwitcher />
+            {user && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  localStorage.removeItem("user");
+                  setUser(null);
+                  window.location.href = "/login";
+                }}
+              >
+                Logout
+              </Button>
+            )}
           </div>
         </div>
       </div>

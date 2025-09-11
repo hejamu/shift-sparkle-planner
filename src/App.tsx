@@ -1,4 +1,4 @@
-
+import EmployeeSettings from "./pages/EmployeeSettings";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,7 +8,9 @@ import Index from "./pages/Index";
 import Schedule from "./pages/Schedule";
 import NotFound from "./pages/NotFound";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
-import Settings from "./pages/Settings";
+import Administration from "./pages/Administration";
+import LoginPage from "./pages/Login";
+import EmployeesPage from "./pages/Employees";
 
 const queryClient = new QueryClient();
 
@@ -16,17 +18,33 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <div className="w-full flex justify-end p-4">
-        <LanguageSwitcher />
-      </div>
+      {/* Removed duplicate LanguageSwitcher from top */}
       <Toaster />
       <Sonner />
       <BrowserRouter>
         <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          {/* Employee route guard: redirect if not on /schedule */}
+          <Route
+            path="*"
+            element={(() => {
+              const userStr = typeof window !== "undefined" ? localStorage.getItem("user") : null;
+              let role = null;
+              try {
+                if (userStr) role = JSON.parse(userStr).role;
+              } catch {}
+              if (role === "employee" && window.location.pathname !== "/schedule") {
+                window.location.replace("/schedule");
+                return null;
+              }
+              return null;
+            })()}
+          />
           <Route path="/" element={<Index />} />
           <Route path="/schedule" element={<Schedule />} />
-            <Route path="/settings" element={<Settings />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="/administration" element={<Administration />} />
+          <Route path="/employees" element={<EmployeesPage />} />
+          <Route path="/employee-settings" element={<EmployeeSettings />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

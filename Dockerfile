@@ -7,6 +7,11 @@ COPY package.json bun.lockb ./
 RUN npm install -g bun && bun install
 # Copy the rest of the source code
 COPY . .
+# Ensure a clean install/build (remove any bun cache and reinstall deps)
+RUN rm -rf /root/.bun || true
+RUN rm -rf node_modules || true
+RUN bun install
+
 # Build the app
 RUN bun run build
 

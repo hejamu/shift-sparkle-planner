@@ -4,7 +4,17 @@ export interface EmployeeApi {
   id: number;
   name: string;
   role: string;
+  active?: boolean;
 }
+export const setEmployeeActiveState = async (id: number, active: boolean): Promise<EmployeeApi> => {
+  const res = await fetch(`/api/employees/${id}/active`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ active }),
+  });
+  if (!res.ok) throw new Error("Failed to update employee active state");
+  return res.json();
+};
 
 export const fetchEmployees = async (): Promise<EmployeeApi[]> => {
   const res = await fetch("/api/employees");

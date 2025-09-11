@@ -16,6 +16,6 @@ services:
       - "3001:3001"
     restart: unless-stopped
     volumes:
-      - sqlite_data:/app/src/server
+      - sqlite_data:/data
 volumes:
   sqlite_data:

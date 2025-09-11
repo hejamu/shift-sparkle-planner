@@ -110,7 +110,7 @@ const Administration: React.FC = () => {
       <>
         <Header />
         <div className="container mx-auto px-6 py-8">
-          <h1 className="text-2xl font-bold mb-4">Settings</h1>
+          <h1 className="text-2xl font-bold mb-4">Administration</h1>
           {/* DB Name Config Section removed */}
           {/* DB Status Section */}
           <div className="mb-8 p-4 bg-gray-50 rounded border">
