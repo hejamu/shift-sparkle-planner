@@ -488,12 +488,9 @@ const WeeklyCalendar = () => {
 
               {/* Horizontally scrollable days container. Gutter stays pinned on the left. */}
               <div className="flex-1 overflow-x-auto">
-                <div className="flex">
+                <div className="flex" style={{ minWidth: `${7 * DAY_COLUMN_MIN}px` }}>
                   {Array.from({ length: 7 }, (_, dayIndex) => (
-                    <div
-                      key={dayIndex}
-                      className="flex-1 basis-0 min-w-[120px] md:min-w-[150px] lg:min-w-[220px] border-r last:border-r-0 p-2"
-                    >
+                    <div key={dayIndex} className="flex-1 basis-0" style={{ minWidth: `${DAY_COLUMN_MIN}px` }}>
                   {/* day timeline viewport (scrollable) */}
                   <div
                     ref={(el) => (dayRefs.current[dayIndex] = el)}
