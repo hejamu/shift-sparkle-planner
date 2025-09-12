@@ -3,6 +3,7 @@ export interface Shift {
   employee: number; // employee id
   date: string; // YYYY-MM-DD
   start_time: string; // HH:MM
+  end_time: string; // HH:MM
   shift_type: number; // shift type id
   notes?: string;
 }

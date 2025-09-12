@@ -5,6 +5,7 @@ import * as sqlite3 from 'sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
 import { parseShowDate } from '../lib/cinetixxParser';
+import { XMLParser } from 'fast-xml-parser';
 // src/server/api.ts
 
 const app = express();
@@ -57,7 +58,6 @@ app.post('/api/init-db', (_req: Request, res: Response) => {
     db.run(`CREATE TABLE IF NOT EXISTS shift_types (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
-      duration INTEGER NOT NULL,
       color TEXT NOT NULL
     )`, (err: Error | null) => {
       if (err) {
@@ -69,6 +69,7 @@ app.post('/api/init-db', (_req: Request, res: Response) => {
         employee INTEGER NOT NULL,
         date TEXT NOT NULL,
         start_time TEXT NOT NULL,
+        end_time TEXT NOT NULL,
         shift_type INTEGER NOT NULL,
         notes TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -182,7 +183,7 @@ app.put('/api/shift-applications/:id', (req: Request, res: Response) => {
 
 // Get all shift types
 app.get('/api/shift-types', (_req: Request, res: Response) => {
-  db.all('SELECT id, name, duration, color FROM shift_types', [], (err: Error | null, rows: any[]) => {
+  db.all('SELECT id, name, color FROM shift_types', [], (err: Error | null, rows: any[]) => {
     if (err) {
       return res.status(500).json({ error: 'Failed to fetch shift types' });
     }
@@ -192,32 +193,32 @@ app.get('/api/shift-types', (_req: Request, res: Response) => {
 
 // Add a new shift type
 app.post('/api/shift-types', (req: Request, res: Response) => {
-  const { name, duration, color } = req.body;
-  if (!name || !duration || duration <= 0) {
-    return res.status(400).json({ error: 'Name and positive duration are required' });
+  const { name, color } = req.body;
+  if (!name) {
+    return res.status(400).json({ error: 'Name is required' });
   }
   const colorValue = color || '#60a5fa';
-  db.run('INSERT INTO shift_types (name, duration, color) VALUES (?, ?, ?)', [name, duration, colorValue], function(this: sqlite3.RunResult, err: Error | null) {
+  db.run('INSERT INTO shift_types (name, color) VALUES (?, ?)', [name, colorValue], function(this: sqlite3.RunResult, err: Error | null) {
     if (err) {
       return res.status(500).json({ error: 'Failed to add shift type' });
     }
-    res.json({ id: this.lastID, name, duration, color: colorValue });
+    res.json({ id: this.lastID, name, color: colorValue });
   });
 });
 
 // Update a shift type
 app.put('/api/shift-types/:id', (req: Request, res: Response) => {
-  const { name, duration, color } = req.body;
+  const { name, color } = req.body;
   const id = req.params.id;
-  if (!name || !duration || duration <= 0) {
-    return res.status(400).json({ error: 'Name and positive duration are required' });
+  if (!name) {
+    return res.status(400).json({ error: 'Name is required' });
   }
   const colorValue = color || '#60a5fa';
-  db.run('UPDATE shift_types SET name = ?, duration = ?, color = ? WHERE id = ?', [name, duration, colorValue, id], function(this: sqlite3.RunResult, err: Error | null) {
+  db.run('UPDATE shift_types SET name = ?, color = ? WHERE id = ?', [name, colorValue, id], function(this: sqlite3.RunResult, err: Error | null) {
     if (err) {
       return res.status(500).json({ error: 'Failed to update shift type' });
     }
-    res.json({ id, name, duration, color: colorValue });
+    res.json({ id, name, color: colorValue });
   });
 });
 
@@ -250,22 +251,77 @@ app.get('/api/proxy/cinetixx-shows', async (_req: Request, res: Response) => {
     if (!r.ok) return res.status(502).json({ error: 'Upstream request failed' });
     const text = await r.text();
 
-    // Extract SHOW_BEGINNING tag contents using regex to avoid XML parser dependency
-    const regex1 = /<SHOW_BEGINNING>([\s\S]*?)<\/SHOW_BEGINNING>/gi;
-    const regex2 = /<show_beginning>([\s\S]*?)<\/show_beginning>/gi;
-    const results: string[] = [];
-    let m: RegExpExecArray | null;
-    while ((m = regex1.exec(text)) !== null) {
-      const raw = m[1];
-      const dt = parseShowDate(raw);
-      if (dt) results.push(dt.toISOString());
+    // Use a lightweight XML parser to extract <Show> elements.
+    const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+    const parsed = parser.parse(text);
+    // The structure depends on the upstream XML. Try to locate Show elements anywhere under parsed.
+    // We'll walk the parsed object to find all Show nodes.
+    // Collect shows into a map keyed by id where possible to avoid duplicates
+    const showsMap = new Map<string, any>();
+
+    const pushShow = (s: any) => {
+      if (!s || typeof s !== 'object') return;
+      const id = s['@_id'] || (s['@_attributes'] && s['@_attributes'].id) || s.id || null;
+      const begin = s.SHOW_BEGINNING || s.show_beginning || (s['SHOW_BEGINNING'] && s['SHOW_BEGINNING']['#text']) || null;
+      const end = s.SHOW_END || s.show_end || (s['SHOW_END'] && s['SHOW_END']['#text']) || null;
+      const key = id ? String(id) : JSON.stringify({ begin: begin || null, end: end || null });
+      if (!showsMap.has(key)) showsMap.set(key, s);
+    };
+
+    const walk = (node: any) => {
+      if (!node || typeof node !== 'object') return;
+      if (Array.isArray(node)) {
+        node.forEach(walk);
+        return;
+      }
+      if (node.Show) {
+        const arr = Array.isArray(node.Show) ? node.Show : [node.Show];
+        arr.forEach((s: any) => pushShow(s));
+      }
+      // If the node itself appears to be a Show (attributes present), treat it as one
+      if (node['@_id'] || (node['@_attributes'] && node['@_attributes'].id)) {
+        pushShow(node);
+      }
+      Object.values(node).forEach(v => walk(v));
+    };
+    walk(parsed);
+
+    // Extract enabled shows and their begin/end times from deduplicated map
+    const result: { id: string; start: string | null; end: string | null }[] = [];
+  for (const s of showsMap.values()) {
+      const attrsId = s['@_id'] || (s['@_attributes'] && s['@_attributes'].id) || s.id || null;
+      const status = s['@_status'] || (s['@_attributes'] && s['@_attributes'].status) || s.status || null;
+      if (!status || String(status) !== 'SHOW_ENABLED') continue;
+
+      // The SHOW_BEGINNING and SHOW_END may be child tags; try multiple keys
+      let beginRaw: any = null;
+      let endRaw: any = null;
+      if (s.SHOW_BEGINNING) beginRaw = s.SHOW_BEGINNING;
+      if (s.SHOW_END) endRaw = s.SHOW_END;
+      if (!beginRaw && s.show_beginning) beginRaw = s.show_beginning;
+      if (!endRaw && s.show_end) endRaw = s.show_end;
+      if (beginRaw && typeof beginRaw === 'object') beginRaw = (beginRaw['#text'] || beginRaw['@_text'] || '') as string;
+      if (endRaw && typeof endRaw === 'object') endRaw = (endRaw['#text'] || endRaw['@_text'] || '') as string;
+
+      const startDate = parseShowDate(beginRaw);
+      const endDate = parseShowDate(endRaw);
+      // Only include shows that have a valid start date
+      const startIso = startDate ? startDate.toISOString() : null;
+      const endIso = endDate ? endDate.toISOString() : null;
+      if (startIso) {
+        result.push({ id: String(attrsId || ''), start: startIso, end: endIso });
+      }
     }
-    while ((m = regex2.exec(text)) !== null) {
-      const raw = m[1];
-      const dt = parseShowDate(raw);
-      if (dt) results.push(dt.toISOString());
+
+    // Final dedupe by id+start to avoid duplicates from parser variations
+    const uniqueMap = new Map<string, { id: string; start: string | null; end: string | null }>();
+    for (const r of result) {
+      const key = `${r.id}|${r.start}`;
+      if (!uniqueMap.has(key)) uniqueMap.set(key, r);
     }
-    res.json({ shows: results });
+    const uniqueResult = Array.from(uniqueMap.values());
+
+    res.json({ shows: uniqueResult });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to proxy' });
   }
@@ -338,18 +394,18 @@ app.get('/api/shifts', (_req: Request, res: Response) => {
 
 // Add a new shift
 app.post('/api/shifts', (req: Request, res: Response) => {
-  const { employee, date, start_time, shift_type, notes } = req.body;
-  if (!employee || !date || !start_time || !shift_type) {
-    return res.status(400).json({ error: 'Missing required fields' });
+  const { employee, date, start_time, end_time, shift_type, notes } = req.body;
+  if (!employee || !date || !start_time || !end_time || !shift_type) {
+    return res.status(400).json({ error: 'Missing required fields (end_time required)' });
   }
   db.run(
-    'INSERT INTO shifts (employee, date, start_time, shift_type, notes) VALUES (?, ?, ?, ?, ?)',
-    [employee, date, start_time, shift_type, notes || null],
+    'INSERT INTO shifts (employee, date, start_time, end_time, shift_type, notes) VALUES (?, ?, ?, ?, ?, ?)',
+    [employee, date, start_time, end_time, shift_type, notes || null],
     function(this: sqlite3.RunResult, err: Error | null) {
       if (err) {
         return res.status(500).json({ error: 'Failed to add shift' });
       }
-      res.json({ id: this.lastID, employee, date, start_time, shift_type, notes });
+      res.json({ id: this.lastID, employee, date, start_time, end_time, shift_type, notes });
     }
   );
 });
@@ -357,15 +413,15 @@ app.post('/api/shifts', (req: Request, res: Response) => {
 // Update a shift
 app.put('/api/shifts/:id', (req: Request, res: Response) => {
   const id = req.params.id;
-  const { employee, date, start_time, shift_type, notes } = req.body;
+  const { employee, date, start_time, end_time, shift_type, notes } = req.body;
   db.run(
-    'UPDATE shifts SET employee = ?, date = ?, start_time = ?, shift_type = ?, notes = ? WHERE id = ?',
-    [employee, date, start_time, shift_type, notes || null, id],
+    'UPDATE shifts SET employee = ?, date = ?, start_time = ?, end_time = ?, shift_type = ?, notes = ? WHERE id = ?',
+    [employee, date, start_time, end_time, shift_type, notes || null, id],
     function(this: sqlite3.RunResult, err: Error | null) {
       if (err) {
         return res.status(500).json({ error: 'Failed to update shift' });
       }
-      res.json({ id, employee, date, start_time, shift_type, notes });
+      res.json({ id, employee, date, start_time, end_time, shift_type, notes });
     }
   );
 });

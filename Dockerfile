@@ -2,7 +2,7 @@
 FROM node:lts AS builder
 WORKDIR /app
 # Copy only dependency files first for better caching
-COPY package.json bun.lockb ./
+COPY package.json ./
 # Install Bun and dependencies
 RUN npm install -g bun && bun install
 # Copy the rest of the source code

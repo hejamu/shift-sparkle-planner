@@ -14,13 +14,13 @@ import { useToast } from "@/hooks/use-toast";
 const shiftSchema = z.object({
   employee: z.string().optional(),
   date: z.string().min(1, "Please select a date"),
-  time: z.string().min(1, "Please select shift time"),
+  time: z.string().min(1, "Please select shift start time"),
+  end_time: z.string().min(1, "Please select shift end time"),
   shiftType: z.string().min(1, "Please select a shift type"),
-  // ...removed location from schema...
   notes: z.string().optional(),
 });
 
-type ShiftFormData = z.infer<typeof shiftSchema> & { duration: number };
+type ShiftFormData = z.infer<typeof shiftSchema>;
 
 interface AddShiftDialogProps {
   children: React.ReactNode;
@@ -33,10 +33,9 @@ const AddShiftDialog = ({ children, selectedDate, onShiftAdded }: AddShiftDialog
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
 
-  // Dynamic employees, roles, locations
+  // Dynamic employees, roles
   const [employees, setEmployees] = useState<{ id: string; name: string; role: string }[]>([]);
   const [shiftTypes, setShiftTypes] = useState<{ id: string; name: string; color: string }[]>([]);
-  // ...removed locations state...
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,7 +60,6 @@ const AddShiftDialog = ({ children, selectedDate, onShiftAdded }: AddShiftDialog
   if (!shiftTypeRes.ok) throw new Error("Failed to fetch shift types");
   const shiftTypeData = await shiftTypeRes.json();
   setShiftTypes(shiftTypeData);
-  // ...removed location fetch logic...
       } catch (err: any) {
         setError(err.message || "Failed to load data");
       }
@@ -76,14 +74,14 @@ const AddShiftDialog = ({ children, selectedDate, onShiftAdded }: AddShiftDialog
   employee: "unassigned",
       date: selectedDate ? selectedDate.toISOString().split('T')[0] : "",
   time: "",
+  end_time: "",
   shiftType: "",
-  // ...removed location from defaultValues...
-      notes: "",
+  notes: "",
     },
   });
 
   const onSubmit = (data: ShiftFormData) => {
-    onShiftAdded(data);
+  onShiftAdded(data);
     toast({ title: "Shift added!", description: "The shift was successfully created." });
     setOpen(false);
     form.reset();
@@ -148,18 +146,40 @@ const AddShiftDialog = ({ children, selectedDate, onShiftAdded }: AddShiftDialog
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Shift Time</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select shift time" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {timeOptions.map(opt => (
-                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-2">
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Start" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {timeOptions.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormField
+                        control={form.control}
+                        name="end_time"
+                        render={({ field: endField }) => (
+                          <FormItem>
+                            <Select onValueChange={endField.onChange} value={endField.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="End" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {timeOptions.map(opt => (
+                                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -188,7 +208,6 @@ const AddShiftDialog = ({ children, selectedDate, onShiftAdded }: AddShiftDialog
                   </FormItem>
                 )}
               />
-              {/* Removed location field */}
               <FormField
                 control={form.control}
                 name="notes"

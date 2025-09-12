@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 export interface ShiftType {
   id: number;
   name: string;
-  duration: number;
   color: string;
 }
 
@@ -16,22 +15,22 @@ const fetchShiftTypes = async (): Promise<ShiftType[]> => {
 };
 
 // Remove duplicate declaration and use correct signature
-const addShiftType = async (name: string, duration: number, color: string): Promise<ShiftType> => {
+const addShiftType = async (name: string, color: string): Promise<ShiftType> => {
   const res = await fetch("/api/shift-types", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, duration, color }),
+    body: JSON.stringify({ name, color }),
   });
   if (!res.ok) throw new Error("Failed to add shift type");
   return res.json();
 };
 
 // Remove duplicate declaration and use correct signature
-const updateShiftType = async (id: number, name: string, duration: number, color: string): Promise<ShiftType> => {
+const updateShiftType = async (id: number, name: string, color: string): Promise<ShiftType> => {
   const res = await fetch(`/api/shift-types/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, duration, color }),
+    body: JSON.stringify({ name, color }),
   });
   if (!res.ok) throw new Error("Failed to update shift type");
   return res.json();
@@ -48,12 +47,10 @@ const ShiftTypeManager: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
-  const [newDuration, setNewDuration] = useState<number>(8);
   const [newColor, setNewColor] = useState<string>("#60a5fa");
   const [addOpen, setAddOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
-  const [editDuration, setEditDuration] = useState<number>(8);
   const [editColor, setEditColor] = useState<string>("#60a5fa");
 
     useEffect(() => {
@@ -69,12 +66,11 @@ const ShiftTypeManager: React.FC = () => {
     }, []);
 
   const handleAdd = async () => {
-    if (!newName.trim() || newDuration <= 0) return;
+    if (!newName.trim()) return;
     try {
-      const added = await addShiftType(newName.trim(), newDuration, newColor);
+      const added = await addShiftType(newName.trim(), newColor);
       setShiftTypes([...shiftTypes, added]);
       setNewName("");
-      setNewDuration(8);
       setNewColor("#60a5fa");
       setError(null);
     } catch (err: any) {
@@ -85,14 +81,13 @@ const ShiftTypeManager: React.FC = () => {
   const handleEdit = (st: ShiftType) => {
   setEditingId(st.id);
   setEditName(st.name);
-  setEditDuration(st.duration);
   setEditColor(st.color || "#60a5fa");
   };
 
   const handleUpdate = async (id: number) => {
-    if (!editName.trim() || editDuration <= 0) return;
+    if (!editName.trim()) return;
     try {
-      const updated = await updateShiftType(id, editName.trim(), editDuration, editColor);
+      const updated = await updateShiftType(id, editName.trim(), editColor);
       setShiftTypes(shiftTypes.map(st => st.id === id ? updated : st));
       setEditingId(null);
       setError(null);
@@ -125,7 +120,7 @@ const ShiftTypeManager: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {shiftTypes.map(st => (
             <div key={st.id} className="shadow rounded-lg p-4 relative flex flex-col" style={{ background: st.color }}>
-              {editingId === st.id ? (
+                  {editingId === st.id ? (
                 <>
                   <input
                     className="border px-2 py-1 rounded mb-2"
@@ -133,13 +128,7 @@ const ShiftTypeManager: React.FC = () => {
                     value={editName}
                     onChange={e => setEditName(e.target.value)}
                   />
-                  <input
-                    className="border px-2 py-1 rounded w-24 mb-2"
-                    type="number"
-                    min={1}
-                    value={editDuration}
-                    onChange={e => setEditDuration(Number(e.target.value))}
-                  />
+                  
                   <input
                     className="border px-2 py-1 rounded w-24 mb-2"
                     type="color"
@@ -162,10 +151,10 @@ const ShiftTypeManager: React.FC = () => {
                     </button>
                   </div>
                 </>
-              ) : (
+                  ) : (
                 <>
                   <div className="font-bold text-lg mb-1">{st.name}</div>
-                  <div className="text-gray-600 mb-2">Duration: {st.duration} hours</div>
+                  <div className="text-gray-600 mb-2">Color: {st.color}</div>
                   <button
                     className="absolute top-2 right-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-full p-2"
                     onClick={() => handleEdit(st)}
@@ -193,7 +182,6 @@ const ShiftTypeManager: React.FC = () => {
                 onClick={() => {
                   setAddOpen(true);
                   setNewName("");
-                  setNewDuration(8);
                   setNewColor("#60a5fa");
                 }}
               >
@@ -216,15 +204,7 @@ const ShiftTypeManager: React.FC = () => {
                   onChange={e => setNewName(e.target.value)}
                   required
                 />
-                <input
-                  className="border px-2 py-1 rounded w-24"
-                  type="number"
-                  min={1}
-                  placeholder="Duration (h)"
-                  value={newDuration}
-                  onChange={e => setNewDuration(Number(e.target.value))}
-                  required
-                />
+                {/* duration removed - shifts now store end_time instead */}
                 <input
                   className="border px-2 py-1 rounded w-24"
                   type="color"
@@ -244,7 +224,6 @@ const ShiftTypeManager: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setNewName("");
-                      setNewDuration(8);
                       setNewColor("#60a5fa");
                       setError(null);
                       setAddOpen(false);

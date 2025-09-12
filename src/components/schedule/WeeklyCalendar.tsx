@@ -20,6 +20,15 @@ const WeeklyCalendar = () => {
     queryFn: fetchShifts,
   });
 
+  const { data: shiftTypes = [] } = useQuery({
+    queryKey: ["shiftTypes"],
+    queryFn: async () => {
+      const res = await fetch('/api/shift-types');
+      if (!res.ok) throw new Error('Failed to fetch shift types');
+      return res.json();
+    }
+  });
+
     // Fetch employees for name lookup
     const { data: employees = [] } = useQuery({
       queryKey: ["employees"],
@@ -67,8 +76,9 @@ const WeeklyCalendar = () => {
     const shiftPayload = {
       employee: shiftData.employee, // employee id
       date: shiftData.date, // YYYY-MM-DD
-      start_time: shiftData.time, // HH:MM
-      shift_type: shiftData.shiftType, // shift type id
+  start_time: shiftData.time, // HH:MM
+  end_time: shiftData.end_time, // HH:MM
+  shift_type: shiftData.shiftType, // shift type id
       notes: shiftData.notes || "",
     };
     await addShiftMutation.mutateAsync(shiftPayload);
@@ -111,25 +121,110 @@ const WeeklyCalendar = () => {
       const shiftDate = new Date(shift.date);
       // Calculate day index for Thursday week start
       const day = ((shiftDate.getDay() + 7 - 4) % 7);
-      // Get shift type info (duration, color) from shiftTypes
-      // For now, fallback to 8h and primary color
-      const duration = 8;
-      const color = "bg-primary";
+      // Get shift type info (color) from shiftTypes and compute duration from start/end
+      const st = shiftTypes.find((t: any) => String(t.id) === String(shift.shift_type));
+  const color = st ? st.color : "#60a5fa";
+      let duration = 8;
+      try {
+        const [sh, sm] = (shift.start_time || "00:00").split(":").map((s: string) => parseInt(s, 10));
+        const [eh, em] = (shift.end_time || "00:00").split(":").map((s: string) => parseInt(s, 10));
+        const startMinutes = (isNaN(sh) ? 0 : sh) * 60 + (isNaN(sm) ? 0 : sm);
+        const endMinutes = (isNaN(eh) ? 0 : eh) * 60 + (isNaN(em) ? 0 : em);
+        const diff = (endMinutes - startMinutes) / 60;
+        duration = diff > 0 ? diff : 8;
+      } catch (e) {
+        duration = 8;
+      }
       return {
         ...shift,
         day,
         time: shift.start_time,
-        duration,
-        color,
+  end_time: shift.end_time,
+  duration,
+  color,
+  startMinutes: (() => {
+    const [sh, sm] = (shift.start_time || "00:00").split(":").map((s: string) => parseInt(s, 10));
+    return (isNaN(sh) ? 0 : sh) * 60 + (isNaN(sm) ? 0 : sm);
+  })(),
+  endMinutes: (() => {
+    const [eh, em] = (shift.end_time || "00:00").split(":").map((s: string) => parseInt(s, 10));
+    return (isNaN(eh) ? 0 : eh) * 60 + (isNaN(em) ? 0 : em);
+  })(),
       };
     });
+
+  // Compute overlap layout per day so overlapping shifts are shown side-by-side
+  const layoutedShifts = (() => {
+    const byDay: Record<number, any[]> = {};
+    mappedShifts.forEach((s: any) => {
+      (byDay[s.day] ||= []).push(s);
+    });
+
+    const result: any[] = [];
+
+    Object.keys(byDay).forEach((k) => {
+      const list = byDay[Number(k)].slice().sort((a: any, b: any) => a.startMinutes - b.startMinutes);
+
+      // Build overlapping clusters
+      const clusters: any[][] = [];
+      let current: any[] = [];
+      let currentMax = -1;
+      list.forEach((s: any) => {
+        if (current.length === 0) {
+          current.push(s);
+          currentMax = s.endMinutes;
+        } else {
+          if (s.startMinutes < currentMax) {
+            current.push(s);
+            currentMax = Math.max(currentMax, s.endMinutes);
+          } else {
+            clusters.push(current);
+            current = [s];
+            currentMax = s.endMinutes;
+          }
+        }
+      });
+      if (current.length) clusters.push(current);
+
+      // Assign columns per cluster
+      clusters.forEach((cluster) => {
+        const colsEnd: number[] = [];
+        const assignments: { shift: any; col: number }[] = [];
+        const sorted = cluster.slice().sort((a: any, b: any) => a.startMinutes - b.startMinutes);
+        sorted.forEach((s: any) => {
+          let placed = false;
+          for (let ci = 0; ci < colsEnd.length; ci++) {
+            if (s.startMinutes >= colsEnd[ci]) {
+              assignments.push({ shift: s, col: ci });
+              colsEnd[ci] = s.endMinutes;
+              placed = true;
+              break;
+            }
+          }
+          if (!placed) {
+            const ci = colsEnd.length;
+            colsEnd.push(s.endMinutes);
+            assignments.push({ shift: s, col: ci });
+          }
+        });
+
+        const colCount = Math.max(1, colsEnd.length);
+        assignments.forEach((a) => {
+          result.push({ ...a.shift, _colIndex: a.col, _colCount: colCount });
+        });
+      });
+    });
+
+    return result;
+  })();
 
   // Debug: log all loaded shifts and mapped shifts
   console.log("Loaded shifts from backend:", shifts);
   console.log("Mapped shifts for calendar:", mappedShifts);
+  console.log("Layouted shifts for calendar:", layoutedShifts);
 
-  // Use mapped shifts for display
-  const allShifts = mappedShifts;
+  // Use layouted shifts for display when available
+  const allShifts = layoutedShifts.length ? layoutedShifts : mappedShifts;
 
   const formatDateHeader = (date: Date) => {
     const today = new Date();
@@ -199,32 +294,45 @@ const WeeklyCalendar = () => {
   const VIEWPORT_HOURS = 10; // show ~10 hours by default
   const VIEWPORT_HEIGHT = VIEWPORT_HOURS * HOUR_HEIGHT;
 
+  // Layout sizing for responsive columns
+  const DAY_COLUMN_MIN = 150; // px minimum per day column
+  const GUTTER_WIDTH = 64; // px width of the left time gutter (w-16)
+
   // Refs to each day's scrollable viewport so we can set default scroll position
   const dayRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const gutterRef = useRef<HTMLDivElement | null>(null);
 
   // Ref to prevent recursive programmatic scroll events
   const isSyncingRef = useRef(false);
 
-  const handleScroll = (e: any, sourceIndex: number) => {
+  const handleScroll = (e: any, sourceIndex: number | 'gutter') => {
     if (isSyncingRef.current) return;
     const scrollTop = e.currentTarget.scrollTop;
     isSyncingRef.current = true;
+
+    // Sync day columns
     dayRefs.current.forEach((el, idx) => {
-      if (el && idx !== sourceIndex) el.scrollTop = scrollTop;
+      if (el && sourceIndex !== idx) el.scrollTop = scrollTop;
     });
-    // release syncing flag on next frame
+
+    // Sync gutter if a day triggered the scroll
+    if (gutterRef.current && sourceIndex !== 'gutter') {
+      gutterRef.current.scrollTop = scrollTop;
+    }
+
     requestAnimationFrame(() => {
       isSyncingRef.current = false;
     });
   };
 
-  // On mount, scroll all day viewports to 14:00
+  // On mount, scroll all day viewports and gutter to 14:00
   useEffect(() => {
     const startHour = 14; // default start view
     const scrollTop = startHour * HOUR_HEIGHT;
     dayRefs.current.forEach((el) => {
       if (el) el.scrollTop = scrollTop;
     });
+    if (gutterRef.current) gutterRef.current.scrollTop = scrollTop;
   }, []);
 
   // Handler: fetch XML from Cinetixx and create shifts from SHOW_BEGINNING tags
@@ -235,8 +343,8 @@ const WeeklyCalendar = () => {
     try {
       const res = await fetch('/api/proxy/cinetixx-shows');
       if (!res.ok) throw new Error('Failed to fetch shows from server proxy');
-      const data = await res.json();
-      const shows: string[] = data.shows || [];
+  const data = await res.json();
+  const shows: { start: string; end?: string | null }[] = data.shows || [];
       if (shows.length === 0) {
         setImportError('No shows returned from proxy');
         setImporting(false);
@@ -244,24 +352,37 @@ const WeeklyCalendar = () => {
       }
 
       let successCount = 0;
-      for (const iso of shows) {
-        // iso is an ISO string; create payload
+      for (const s of shows) {
+        // s is { start: ISO, end: ISO | null }
         try {
-          const dt = new Date(iso);
+          const startIso = s.start;
+          if (!startIso) continue;
+          const dt = new Date(startIso);
           if (isNaN(dt.getTime())) continue;
           const dateStr = dt.toISOString().slice(0, 10);
           const timeStr = dt.toTimeString().slice(0, 5);
+          let endTimeStr: string;
+          if (s.end) {
+            const endDt = new Date(s.end);
+            endTimeStr = endDt.toTimeString().slice(0,5);
+          } else {
+            // fallback to +8h
+            const endDt = new Date(dt);
+            endDt.setHours(endDt.getHours() + 8);
+            endTimeStr = endDt.toTimeString().slice(0,5);
+          }
           const payload = {
             employee: currentEmployeeId,
             date: dateStr,
             start_time: timeStr,
+            end_time: endTimeStr,
             shift_type: 1,
-            notes: `Imported from Cinetixx (SHOW_BEGINNING=${iso})`,
+            notes: `Imported from Cinetixx (SHOW_BEGINNING=${startIso})`,
           } as any;
           await addShiftMutation.mutateAsync(payload);
           successCount += 1;
         } catch (err) {
-          console.warn('Failed to import show', iso, err);
+          console.warn('Failed to import show', s, err);
         }
       }
 
@@ -335,53 +456,97 @@ const WeeklyCalendar = () => {
         <CardContent className="p-0">
           {/* top date header removed — each column has its own sticky header */}
 
-          {/* Time slots and shifts: position shifts by time and size by duration */}
-          <div className="grid grid-cols-7">
-            {Array.from({ length: 7 }, (_, dayIndex) => (
-              <div key={dayIndex} className="border-r last:border-r-0 p-2">
-                {/* day timeline viewport (scrollable) */}
-                <div
-                  ref={(el) => (dayRefs.current[dayIndex] = el)}
-                  className="relative w-full overflow-y-auto hide-scrollbar"
-                  style={{ height: VIEWPORT_HEIGHT }}
-                  onScroll={(e) => handleScroll(e, dayIndex)}
-                >
-                  {/* sticky header inside scrollable viewport */}
-                  <div className="sticky top-0 bg-background/80 backdrop-blur-sm z-10 py-2">
-                    <div className="text-sm font-medium text-muted-foreground text-center">{weekDays[dayIndex].toLocaleDateString('de-DE', { weekday: 'short' })}</div>
-                    <div className="text-lg font-semibold text-center">{weekDays[dayIndex].toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}</div>
+          {/* Time slots and shifts: left sticky gutter with time labels + 7 day columns */}
+          <div className="relative"> 
+            <div className="flex">
+              {/* Left sticky time gutter (sticky to viewport, visually distinct) */}
+              <div className="sticky left-0 top-20 z-40 w-16 mr-3 flex-shrink-0">{/* top-20 assumes header height; adjust if needed */}
+                <div className="bg-background/90 backdrop-blur-sm border-r border-muted/10 rounded-md shadow-sm">
+                  <div
+                    ref={(el) => (gutterRef.current = el)}
+                    className="relative w-full overflow-y-auto hide-scrollbar"
+                    style={{ height: VIEWPORT_HEIGHT }}
+                    onScroll={(e) => handleScroll(e, 'gutter')}
+                  >
+                    <div className="sticky top-0 py-2 flex items-center justify-center">
+                      <div className="text-sm font-medium text-muted-foreground">Time</div>
+                    </div>
+                    <div className="relative w-full" style={{ height: DAY_HEIGHT }}>
+                      {Array.from({ length: 24 }, (_, h) => (
+                        <div
+                          key={h}
+                          className="absolute left-0 right-0 text-xs text-muted-foreground pl-3"
+                          style={{ top: h * HOUR_HEIGHT }}
+                        >
+                          {String(h).padStart(2, '0')}:00
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  {/* inner timeline of full day height */}
-                  <div className="relative w-full" style={{ height: DAY_HEIGHT }}>
-                    {/* Optional hour lines (light) */}
-                    {Array.from({ length: 24 }, (_, h) => (
-                      <div
-                        key={h}
-                        className={`absolute left-0 right-0 border-t border-dashed border-transparent/20 text-xs text-muted-foreground`}
-                        style={{ top: h * HOUR_HEIGHT }}
-                      />
-                    ))}
+                </div>
+              </div>
 
-                    {allShifts
-                      .filter((shift) => shift.day === dayIndex)
-                      .map((shift) => {
-                        // parse shift.time "HH:MM"
-                        const [hh, mm] = (shift.time || "00:00").split(":").map((s: string) => parseInt(s, 10));
-                        const startMinutes = (isNaN(hh) ? 0 : hh) * 60 + (isNaN(mm) ? 0 : mm);
-                        const top = (startMinutes / 60) * HOUR_HEIGHT;
-                        const height = (shift.duration || 8) * HOUR_HEIGHT;
-                        return (
+              {/* Horizontally scrollable days container. Gutter stays pinned on the left. */}
+              <div className="flex-1 overflow-x-auto">
+                <div className="flex">
+                  {Array.from({ length: 7 }, (_, dayIndex) => (
+                    <div
+                      key={dayIndex}
+                      className="flex-1 basis-0 min-w-[120px] md:min-w-[150px] lg:min-w-[220px] border-r last:border-r-0 p-2"
+                    >
+                  {/* day timeline viewport (scrollable) */}
+                  <div
+                    ref={(el) => (dayRefs.current[dayIndex] = el)}
+                    className="relative w-full overflow-y-auto hide-scrollbar"
+                    style={{ height: VIEWPORT_HEIGHT }}
+                    onScroll={(e) => handleScroll(e, dayIndex)}
+                  >
+                    {/* sticky header inside scrollable viewport */}
+                    <div className="sticky top-0 bg-background/80 backdrop-blur-sm z-10 py-2">
+                      <div className="text-sm font-medium text-muted-foreground text-center">{weekDays[dayIndex].toLocaleDateString('de-DE', { weekday: 'short' })}</div>
+                      <div className="text-lg font-semibold text-center">{weekDays[dayIndex].toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}</div>
+                    </div>
+                    {/* inner timeline of full day height */}
+                    <div className="relative w-full" style={{ height: DAY_HEIGHT }}>
+                      {/* Hour lines only (labels live in left gutter) */}
+                      {Array.from({ length: 24 }, (_, h) => (
+                        <div
+                          key={h}
+                          className={`absolute left-0 right-0 border-t border-dashed border-transparent/20`}
+                          style={{ top: h * HOUR_HEIGHT }}
+                        />
+                      ))}
+
+                      {allShifts
+                        .filter((shift) => shift.day === dayIndex)
+                        .map((shift) => {
+                          // parse shift.time "HH:MM"
+                          const [hh, mm] = (shift.time || "00:00").split(":").map((s: string) => parseInt(s, 10));
+                          const startMinutes = (isNaN(hh) ? 0 : hh) * 60 + (isNaN(mm) ? 0 : mm);
+                          const top = (startMinutes / 60) * HOUR_HEIGHT;
+                          const height = (shift.duration || 8) * HOUR_HEIGHT;
+      const assignedName = shift.employee ? getEmployeeName(String(shift.employee)) : null;
+
+      // column layout for overlapping shifts
+      const colIndex = (shift as any)._colIndex ?? 0;
+      const colCount = (shift as any)._colCount ?? 1;
+      const gutterPercent = 4; // total left+right gutter
+      const availablePercent = 100 - gutterPercent; // percent available for columns
+      const widthPercent = Math.max(6, availablePercent / colCount - 1);
+      const leftPercent = (gutterPercent / 2) + colIndex * (availablePercent / colCount);
+
+      return (
                           <Dialog key={shift.id} open={selectedShift?.id === shift.id} onOpenChange={(open) => setSelectedShift(open ? shift : null)}>
                             <DialogTrigger asChild>
-                              <div
-                                className={`${shift.color} text-white p-2 rounded-md shadow-sm hover:shadow-hover transition-smooth cursor-pointer absolute left-2 right-2 overflow-hidden`}
-                                style={{ top, height }}
+                                <div
+                                className={`text-white p-2 rounded-md shadow-sm hover:shadow-hover transition-smooth cursor-pointer absolute overflow-hidden`}
+                                style={{ top, height, left: `${leftPercent}%`, width: `${widthPercent}%`, background: shift.color }}
                               >
-                                <div className="text-xs font-medium mb-1">
-                                  {shift.time} ({shift.duration}h)
-                                </div>
-                                <div className="text-xs">{getEmployeeName(String(shift.employee))}</div>
-                                <div className="text-xs opacity-90">{shift.shift_type}</div>
+        {/* Show only start time on the compact card */}
+        <div className="text-xs font-medium mb-1">{shift.time}</div>
+        {/* Show assignment status: employee name or Unassigned */}
+        <div className="text-xs">{assignedName ? `Assigned: ${assignedName}` : 'Unassigned'}</div>
+        <div className="text-xs opacity-90">{shift.shift_type}</div>
                               </div>
                             </DialogTrigger>
                             <DialogContent>
@@ -390,8 +555,7 @@ const WeeklyCalendar = () => {
                               </DialogHeader>
                               <div className="space-y-2">
                                 <div><strong>Date:</strong> {shift.date}</div>
-                                <div><strong>Time:</strong> {shift.time}</div>
-                                <div><strong>Duration:</strong> {shift.duration}h</div>
+                                <div><strong>Time:</strong> {shift.time} - {shift.end_time}</div>
                                 <div><strong>Employee:</strong> {getEmployeeName(String(shift.employee))}</div>
                                 <div><strong>Shift Type:</strong> {shift.shift_type}</div>
                                 {shift.notes && <div><strong>Notes:</strong> {shift.notes}</div>}
@@ -411,22 +575,25 @@ const WeeklyCalendar = () => {
                           </Dialog>
                         );
                       })}
+                    </div>
+
                   </div>
 
+                  {/* Add shift button (show for manager/admin even if shifts exist) */}
+                  {(role === "manager" || role === "admin") && (
+                    <div className="mt-2">
+                      <AddShiftDialog selectedDate={new Date(weekDays[dayIndex])} onShiftAdded={handleAddShift}>
+                        <button className="w-full h-12 border-2 border-dashed border-muted hover:border-primary hover:bg-primary/5 rounded-md transition-smooth flex items-center justify-center text-muted-foreground hover:text-primary">
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </AddShiftDialog>
+                    </div>
+                  )}
                 </div>
-
-                {/* Add shift button (show for manager/admin even if shifts exist) */}
-                {(role === "manager" || role === "admin") && (
-                  <div className="mt-2">
-                    <AddShiftDialog selectedDate={new Date(weekDays[dayIndex])} onShiftAdded={handleAddShift}>
-                      <button className="w-full h-12 border-2 border-dashed border-muted hover:border-primary hover:bg-primary/5 rounded-md transition-smooth flex items-center justify-center text-muted-foreground hover:text-primary">
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    </AddShiftDialog>
-                  </div>
-                )}
+                  ))}
                 </div>
-            ))}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
