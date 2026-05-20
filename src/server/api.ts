@@ -81,7 +81,7 @@ const requireRole = (...roles: Role[]) => (req: Request, res: Response, next: Ne
 
 // Endpoint to check if database file exists
 // Check if database file exists
-app.get('/api/db-exists', (_req: Request, res: Response) => {
+app.get('/api/db-exists', requireAuth, requireRole('admin'), (_req: Request, res: Response) => {
   const dbPathChecked = path.join('/data', 'shiftplanner.sqlite');
   fs.access(dbPathChecked, fs.constants.F_OK, (err: NodeJS.ErrnoException | null) => {
     res.json({ exists: !err });
@@ -90,7 +90,7 @@ app.get('/api/db-exists', (_req: Request, res: Response) => {
 
 
 // Check if required tables exist in the database
-app.get('/api/db-tables', (_req: Request, res: Response) => {
+app.get('/api/db-tables', requireAuth, requireRole('admin'), (_req: Request, res: Response) => {
   const dbPathChecked = path.join('/data', 'shiftplanner.sqlite');
   const dbChecked = new sqlite3.Database(dbPathChecked);
   const requiredTables = ['users', 'shift_types', 'shifts', 'shift_applications', 'settings'];
@@ -206,7 +206,7 @@ app.get('/api/me', requireAuth, (req: Request, res: Response) => {
 // --- SETTINGS API ---
 
 // Get all settings
-app.get('/api/settings', (_req: Request, res: Response) => {
+app.get('/api/settings', requireAuth, (_req: Request, res: Response) => {
   db.all('SELECT key, value FROM settings', [], (err: Error | null, rows: any[]) => {
     if (err) {
       return res.status(500).json({ error: 'Failed to fetch settings' });
@@ -221,7 +221,7 @@ app.get('/api/settings', (_req: Request, res: Response) => {
 });
 
 // Get a specific setting
-app.get('/api/settings/:key', (req: Request, res: Response) => {
+app.get('/api/settings/:key', requireAuth, (req: Request, res: Response) => {
   const { key } = req.params;
   db.get('SELECT value FROM settings WHERE key = ?', [key], (err: Error | null, row: any) => {
     if (err) {
@@ -235,7 +235,7 @@ app.get('/api/settings/:key', (req: Request, res: Response) => {
 });
 
 // Update a setting
-app.put('/api/settings/:key', (req: Request, res: Response) => {
+app.put('/api/settings/:key', requireAuth, requireRole('admin'), (req: Request, res: Response) => {
   const { key } = req.params;
   const { value } = req.body;
   if (value === undefined) {
@@ -252,10 +252,14 @@ app.put('/api/settings/:key', (req: Request, res: Response) => {
 // --- SHIFT APPLICATIONS API ---
 
 // Apply for a shift
-app.post('/api/shift-applications', async (req: Request, res: Response) => {
+app.post('/api/shift-applications', requireAuth, async (req: Request, res: Response) => {
   const { shift_id, employee_id } = req.body;
   if (!shift_id || !employee_id) {
     return res.status(400).json({ error: 'Missing required fields' });
+  }
+  // Employees can only apply on their own behalf; managers/admins may apply for anyone.
+  if (req.user!.role === 'employee' && req.user!.id !== Number(employee_id)) {
+    return res.status(403).json({ error: 'Cannot apply on behalf of another user' });
   }
 
   try {
@@ -414,17 +418,21 @@ app.post('/api/shift-applications', async (req: Request, res: Response) => {
 });
 
 // List applications for a shift or employee
-app.get('/api/shift-applications', (req: Request, res: Response) => {
+app.get('/api/shift-applications', requireAuth, (req: Request, res: Response) => {
   const { shift_id, employee_id } = req.query;
   let query = 'SELECT * FROM shift_applications';
-  let conditions: string[] = [];
-  let params: any[] = [];
-  
+  const conditions: string[] = [];
+  const params: any[] = [];
+
   if (shift_id) {
     conditions.push('shift_id = ?');
     params.push(shift_id);
   }
-  if (employee_id) {
+  // Employees only see their own applications, regardless of query.
+  if (req.user!.role === 'employee') {
+    conditions.push('employee_id = ?');
+    params.push(req.user!.id);
+  } else if (employee_id) {
     conditions.push('employee_id = ?');
     params.push(employee_id);
   }
@@ -442,7 +450,7 @@ app.get('/api/shift-applications', (req: Request, res: Response) => {
 });
 
 // Update application status
-app.put('/api/shift-applications/:id', (req: Request, res: Response) => {
+app.put('/api/shift-applications/:id', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
   const id = req.params.id;
   const { status } = req.body;
   if (!status) {
@@ -457,7 +465,7 @@ app.put('/api/shift-applications/:id', (req: Request, res: Response) => {
 });
 
 // Get all shift types
-app.get('/api/shift-types', (_req: Request, res: Response) => {
+app.get('/api/shift-types', requireAuth, (_req: Request, res: Response) => {
   db.all('SELECT id, name, color FROM shift_types', [], (err: Error | null, rows: any[]) => {
     if (err) {
       return res.status(500).json({ error: 'Failed to fetch shift types' });
@@ -467,7 +475,7 @@ app.get('/api/shift-types', (_req: Request, res: Response) => {
 });
 
 // Add a new shift type
-app.post('/api/shift-types', (req: Request, res: Response) => {
+app.post('/api/shift-types', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
   const { name, color } = req.body;
   if (!name) {
     return res.status(400).json({ error: 'Name is required' });
@@ -482,7 +490,7 @@ app.post('/api/shift-types', (req: Request, res: Response) => {
 });
 
 // Update a shift type
-app.put('/api/shift-types/:id', (req: Request, res: Response) => {
+app.put('/api/shift-types/:id', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
   const { name, color } = req.body;
   const id = req.params.id;
   if (!name) {
@@ -498,7 +506,7 @@ app.put('/api/shift-types/:id', (req: Request, res: Response) => {
 });
 
 // Delete a shift type
-app.delete('/api/shift-types/:id', (req: Request, res: Response) => {
+app.delete('/api/shift-types/:id', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
   const id = req.params.id;
   db.run('DELETE FROM shift_types WHERE id = ?', [id], function(this: sqlite3.RunResult, err: Error | null) {
     if (err) {
@@ -508,7 +516,7 @@ app.delete('/api/shift-types/:id', (req: Request, res: Response) => {
   });
 });
 
-app.get('/api/employees', (_req: Request, res: Response) => {
+app.get('/api/employees', requireAuth, (_req: Request, res: Response) => {
   db.all('SELECT id, name, role, username FROM users', [], (err: Error | null, rows: any[]) => {
     if (err) {
       return res.status(500).json({ error: 'Failed to fetch employees' });
@@ -518,7 +526,7 @@ app.get('/api/employees', (_req: Request, res: Response) => {
 });
 
 // Proxy endpoint to fetch Cinetixx show info and return parsed SHOW_BEGINNING datetimes
-app.get('/api/proxy/cinetixx-shows', async (_req: Request, res: Response) => {
+app.get('/api/proxy/cinetixx-shows', requireAuth, requireRole('manager', 'admin'), async (_req: Request, res: Response) => {
   const apiUrl = 'https://api.cinetixx.de/Services/CinetixxService.asmx/GetShowInfo?mandatorID=2208234164&auditid=2209573052';
   try {
     // Use global fetch (Node 18+). If not available, the server environment should polyfill.
@@ -604,7 +612,7 @@ app.get('/api/proxy/cinetixx-shows', async (_req: Request, res: Response) => {
 
 const normalizeRole = (role: unknown): Role => (role === 'admin' ? 'admin' : role === 'manager' ? 'manager' : 'employee');
 
-app.post('/api/employees', async (req: Request, res: Response) => {
+app.post('/api/employees', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   const { name, role, username, password } = req.body;
   if (!name || !username || !password) {
     return res.status(400).json({ error: 'Name, username, and password are required' });
@@ -622,7 +630,7 @@ app.post('/api/employees', async (req: Request, res: Response) => {
   }
 });
 
-app.put('/api/employees/:id', async (req: Request, res: Response) => {
+app.put('/api/employees/:id', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   const id = req.params.id;
   const { role, name, username, password } = req.body;
   const roleValue = normalizeRole(role);
@@ -645,7 +653,7 @@ app.put('/api/employees/:id', async (req: Request, res: Response) => {
   }
 });
 
-app.delete('/api/employees/:id', (req: Request, res: Response) => {
+app.delete('/api/employees/:id', requireAuth, requireRole('admin'), (req: Request, res: Response) => {
   const id = req.params.id;
   db.run('DELETE FROM users WHERE id = ?', [id], function(this: sqlite3.RunResult, err: Error | null) {
     if (err) {
@@ -657,7 +665,7 @@ app.delete('/api/employees/:id', (req: Request, res: Response) => {
 
 
 // Endpoint to drop all tables
-app.post('/api/drop-tables', (_req: Request, res: Response) => {
+app.post('/api/drop-tables', requireAuth, requireRole('admin'), (_req: Request, res: Response) => {
   const dbPathChecked = path.join('/data', 'shiftplanner.sqlite');
   const dbChecked = new sqlite3.Database(dbPathChecked);
   dbChecked.serialize(() => {
@@ -672,7 +680,7 @@ app.post('/api/drop-tables', (_req: Request, res: Response) => {
 // --- SHIFTS API ENDPOINTS ---
 
 // Get all shifts
-app.get('/api/shifts', (_req: Request, res: Response) => {
+app.get('/api/shifts', requireAuth, (_req: Request, res: Response) => {
   db.all('SELECT * FROM shifts', [], (err: Error | null, rows: any[]) => {
     if (err) {
       return res.status(500).json({ error: 'Failed to fetch shifts' });
@@ -682,7 +690,7 @@ app.get('/api/shifts', (_req: Request, res: Response) => {
 });
 
 // Add a new shift
-app.post('/api/shifts', (req: Request, res: Response) => {
+app.post('/api/shifts', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
   const { employee, date, start_time, end_time, shift_type, notes } = req.body;
   if (!date || !start_time || !end_time || !shift_type) {
     return res.status(400).json({ error: 'Missing required fields (date, start_time, end_time, shift_type)' });
@@ -714,7 +722,7 @@ app.post('/api/shifts', (req: Request, res: Response) => {
 });
 
 // Update a shift
-app.put('/api/shifts/:id', (req: Request, res: Response) => {
+app.put('/api/shifts/:id', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
   const id = req.params.id;
   const { employee, date, start_time, end_time, shift_type, notes } = req.body;
   // Normalize employee: allow null/unassigned
@@ -744,7 +752,7 @@ app.put('/api/shifts/:id', (req: Request, res: Response) => {
 });
 
 // Delete a shift
-app.delete('/api/shifts/:id', (req: Request, res: Response) => {
+app.delete('/api/shifts/:id', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
   const id = req.params.id;
   db.run('DELETE FROM shifts WHERE id = ?', [id], function(this: sqlite3.RunResult, err: Error | null) {
     if (err) {
