@@ -1,19 +1,83 @@
 import express from 'express';
-import type { Request, Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import * as sqlite3 from 'sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as bcrypt from 'bcryptjs';
+import * as jwt from 'jsonwebtoken';
+import cookieParser from 'cookie-parser';
 import { parseShowDate } from '../lib/cinetixxParser';
 import { getWeekEnd, getWeekStart } from '../lib/week';
 import { XMLParser } from 'fast-xml-parser';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
+const SESSION_COOKIE = 'session';
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 1 week
+const BCRYPT_ROUNDS = 10;
+const SESSION_SECRET = process.env.SESSION_SECRET;
+if (!SESSION_SECRET) {
+  console.error('SESSION_SECRET environment variable is required');
+  process.exit(1);
+}
 
 app.use(express.json());
-// Use file-based SQLite DB for persistence
+app.use(cookieParser());
 const dbPath = path.join('/data/shiftplanner.sqlite');
 const db = new sqlite3.Database(dbPath);
+
+type Role = 'employee' | 'manager' | 'admin';
+type SessionUser = { id: number; username: string; role: Role };
+
+const dbRun = (sql: string, params: any[] = []): Promise<sqlite3.RunResult> =>
+  new Promise((resolve, reject) => {
+    db.run(sql, params, function (this: sqlite3.RunResult, err) {
+      if (err) reject(err);
+      else resolve(this);
+    });
+  });
+const dbGet = <T = any>(sql: string, params: any[] = []): Promise<T | undefined> =>
+  new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row as T)));
+  });
+const dbAll = <T = any>(sql: string, params: any[] = []): Promise<T[]> =>
+  new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => (err ? reject(err) : resolve(rows as T[])));
+  });
+
+declare module 'express-serve-static-core' {
+  interface Request {
+    user?: SessionUser;
+  }
+}
+
+const issueSession = (res: Response, user: SessionUser) => {
+  const token = jwt.sign(user, SESSION_SECRET as string, { expiresIn: SESSION_TTL_SECONDS });
+  res.cookie(SESSION_COOKIE, token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: SESSION_TTL_SECONDS * 1000,
+  });
+};
+
+const requireAuth = (req: Request, res: Response, next: NextFunction) => {
+  const token = req.cookies?.[SESSION_COOKIE];
+  if (!token) return res.status(401).json({ error: 'Not authenticated' });
+  try {
+    const decoded = jwt.verify(token, SESSION_SECRET as string) as SessionUser & { iat: number; exp: number };
+    req.user = { id: decoded.id, username: decoded.username, role: decoded.role };
+    next();
+  } catch {
+    res.status(401).json({ error: 'Invalid session' });
+  }
+};
+
+const requireRole = (...roles: Role[]) => (req: Request, res: Response, next: NextFunction) => {
+  if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
+  if (!roles.includes(req.user.role)) return res.status(403).json({ error: 'Forbidden' });
+  next();
+};
 
 // Endpoint to check if database file exists
 // Check if database file exists
@@ -40,122 +104,104 @@ app.get('/api/db-tables', (_req: Request, res: Response) => {
   });
 });
 
-// Endpoint to initialize the database
-app.post('/api/init-db', (_req: Request, res: Response) => {
-  let errors: string[] = [];
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL UNIQUE,
-      password TEXT NOT NULL,
-      name TEXT NOT NULL,
-      role TEXT NOT NULL CHECK(role IN ('employee', 'manager', 'admin'))
-    )`, (err: Error | null) => {
-        if (err) {
-          console.error('Error creating users table:', err);
-          errors.push('users: ' + err.message);
-        }
-    db.run(`CREATE TABLE IF NOT EXISTS shift_types (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL UNIQUE,
-      color TEXT NOT NULL
-    )`, (err: Error | null) => {
-      if (err) {
-        console.error('Error creating shift_types table:', err);
-        errors.push('shift_types: ' + err.message);
-      }
-      db.run(`CREATE TABLE IF NOT EXISTS shifts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        employee INTEGER,
-        date TEXT NOT NULL,
-        start_time TEXT NOT NULL,
-        end_time TEXT NOT NULL,
-        shift_type INTEGER NOT NULL,
-        notes TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (employee) REFERENCES users(id),
-        FOREIGN KEY (shift_type) REFERENCES shift_types(id)
-      )`, (err: Error | null) => {
-        if (err) {
-          console.error('Error creating shifts table:', err);
-          errors.push('shifts: ' + err.message);
-        }
-  db.run(`CREATE TABLE IF NOT EXISTS shift_applications (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          shift_id INTEGER NOT NULL,
-          employee_id INTEGER NOT NULL,
-          status TEXT NOT NULL DEFAULT 'pending',
-          auto_assigned INTEGER DEFAULT 0,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (shift_id) REFERENCES shifts(id),
-          FOREIGN KEY (employee_id) REFERENCES users(id)
-        )`, (err: Error | null) => {
-          if (err) {
-            console.error('Error creating shift_applications table:', err);
-            errors.push('shift_applications: ' + err.message);
-          }
-          
-          // Add auto_assigned column if it doesn't exist (migration for existing databases)
-          db.run(`ALTER TABLE shift_applications ADD COLUMN auto_assigned INTEGER DEFAULT 0`, (alterErr: Error | null) => {
-            // Ignore error if column already exists
-            if (alterErr && !alterErr.message.includes('duplicate column')) {
-              console.log('Note: auto_assigned column may already exist');
-            }
-          
-          // Create settings table
-          db.run(`CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL
-          )`, (err: Error | null) => {
-            if (err) {
-              console.error('Error creating settings table:', err);
-              errors.push('settings: ' + err.message);
-            }
-            
-            // Insert default auto-assign limit if not exists
-            db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('auto_assign_limit', '1')`, (err: Error | null) => {
-              if (err) {
-                console.error('Error inserting default settings:', err);
-              }
-              
-              if (errors.length > 0) {
-                res.status(500).json({ initialized: false, errors });
-              } else {
-                res.json({ initialized: true });
-              }
-            });
-          });
-          }); // end ALTER TABLE callback
-        });
-      });
-    });
-  });
+const SCHEMA_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    name TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('employee', 'manager', 'admin'))
+  )`,
+  `CREATE TABLE IF NOT EXISTS shift_types (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    color TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS shifts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee INTEGER,
+    date TEXT NOT NULL,
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    shift_type INTEGER NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (employee) REFERENCES users(id),
+    FOREIGN KEY (shift_type) REFERENCES shift_types(id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS shift_applications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shift_id INTEGER NOT NULL,
+    employee_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    auto_assigned INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (shift_id) REFERENCES shifts(id),
+    FOREIGN KEY (employee_id) REFERENCES users(id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  )`,
+];
+
+async function initSchema(): Promise<void> {
+  for (const sql of SCHEMA_STATEMENTS) await dbRun(sql);
+  await dbRun(`INSERT OR IGNORE INTO settings (key, value) VALUES ('auto_assign_limit', '1')`);
+  // Seed an admin user if no admin exists yet — first boot only.
+  const existingAdmin = await dbGet<{ id: number }>(`SELECT id FROM users WHERE role = 'admin' LIMIT 1`);
+  if (!existingAdmin) {
+    const defaultPassword = process.env.ADMIN_DEFAULT_PASSWORD || 'changeme';
+    if (defaultPassword === 'changeme') {
+      console.warn('Seeding admin/admin with default password "changeme". Set ADMIN_DEFAULT_PASSWORD to override and rotate it immediately.');
+    }
+    const hashed = await bcrypt.hash(defaultPassword, BCRYPT_ROUNDS);
+    await dbRun(
+      `INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, 'admin')`,
+      ['admin', hashed, 'Administrator'],
+    );
+  }
+}
+
+app.post('/api/init-db', requireAuth, requireRole('admin'), async (_req: Request, res: Response) => {
+  try {
+    await initSchema();
+    res.json({ initialized: true });
+  } catch (err: any) {
+    res.status(500).json({ initialized: false, error: err?.message || 'Failed to initialize' });
+  }
 });
 
 // --- USER AUTH API ---
 
-// Simple login endpoint (for demo, plaintext password)
 app.post('/api/login', (req: Request, res: Response) => {
   const { username, password } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'Missing username or password' });
   }
-  // Local admin fallback
-  if (username === 'admin' && password === 'letmein123') {
-    return res.json({ id: 0, username: 'admin', role: 'admin', local: true });
-  }
-  db.get('SELECT id, username, role FROM users WHERE username = ? AND password = ?', [username, password], (err: Error | null, user: any) => {
-    if (err) {
-      return res.status(500).json({ error: 'Login failed' });
-    }
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    // For future: issue JWT or session token here
-    res.json({ id: user.id, username: user.username, role: user.role });
-  });
+  db.get(
+    'SELECT id, username, password, role FROM users WHERE username = ?',
+    [username],
+    async (err: Error | null, row: any) => {
+      if (err) return res.status(500).json({ error: 'Login failed' });
+      if (!row) return res.status(401).json({ error: 'Invalid credentials' });
+      const ok = await bcrypt.compare(password, row.password);
+      if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+      const user: SessionUser = { id: row.id, username: row.username, role: row.role };
+      issueSession(res, user);
+      res.json(user);
+    },
+  );
 });
-// End of API routes
-  // --- END USER AUTH API ---
+
+app.post('/api/logout', (_req: Request, res: Response) => {
+  res.clearCookie(SESSION_COOKIE);
+  res.json({ ok: true });
+});
+
+app.get('/api/me', requireAuth, (req: Request, res: Response) => {
+  res.json(req.user);
+});
 
 // --- SETTINGS API ---
 
@@ -556,35 +602,49 @@ app.get('/api/proxy/cinetixx-shows', async (_req: Request, res: Response) => {
   }
 });
 
-// Add new employee
-app.post('/api/employees', (req: Request, res: Response) => {
+const normalizeRole = (role: unknown): Role => (role === 'admin' ? 'admin' : role === 'manager' ? 'manager' : 'employee');
+
+app.post('/api/employees', async (req: Request, res: Response) => {
   const { name, role, username, password } = req.body;
   if (!name || !username || !password) {
     return res.status(400).json({ error: 'Name, username, and password are required' });
   }
-  const roleValue = role === 'manager' ? 'manager' : 'employee';
-  db.run('INSERT INTO users (name, username, password, role) VALUES (?, ?, ?, ?)', [name, username, password, roleValue], function(this: sqlite3.RunResult, err: Error | null) {
-    if (err) {
-      return res.status(500).json({ error: 'Failed to add user' });
-    }
-    res.json({ id: this.lastID, name, username, role: roleValue });
-  });
+  try {
+    const hashed = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    const roleValue = normalizeRole(role);
+    const result = await dbRun(
+      'INSERT INTO users (name, username, password, role) VALUES (?, ?, ?, ?)',
+      [name, username, hashed, roleValue],
+    );
+    res.json({ id: result.lastID, name, username, role: roleValue });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Failed to add user' });
+  }
 });
 
-// Update employee role
-app.put('/api/employees/:id', (req: Request, res: Response) => {
+app.put('/api/employees/:id', async (req: Request, res: Response) => {
   const id = req.params.id;
   const { role, name, username, password } = req.body;
-  const roleValue = role === 'manager' ? 'manager' : 'employee';
-  db.run('UPDATE users SET role = ?, name = ?, username = ?, password = ? WHERE id = ?', [roleValue, name, username, password, id], function(this: sqlite3.RunResult, err: Error | null) {
-    if (err) {
-      return res.status(500).json({ error: 'Failed to update user' });
+  const roleValue = normalizeRole(role);
+  try {
+    if (password) {
+      const hashed = await bcrypt.hash(password, BCRYPT_ROUNDS);
+      await dbRun(
+        'UPDATE users SET role = ?, name = ?, username = ?, password = ? WHERE id = ?',
+        [roleValue, name, username, hashed, id],
+      );
+    } else {
+      await dbRun(
+        'UPDATE users SET role = ?, name = ?, username = ? WHERE id = ?',
+        [roleValue, name, username, id],
+      );
     }
     res.json({ id, role: roleValue, name, username });
-  });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Failed to update user' });
+  }
 });
 
-// Delete employee
 app.delete('/api/employees/:id', (req: Request, res: Response) => {
   const id = req.params.id;
   db.run('DELETE FROM users WHERE id = ?', [id], function(this: sqlite3.RunResult, err: Error | null) {
@@ -694,6 +754,13 @@ app.delete('/api/shifts/:id', (req: Request, res: Response) => {
   });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`API server running on port ${PORT}`);
-});
+initSchema()
+  .then(() => {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`API server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Failed to initialize database, refusing to start:', err);
+    process.exit(1);
+  });

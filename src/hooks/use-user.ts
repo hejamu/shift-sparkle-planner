@@ -1,54 +1,40 @@
-import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+export type Role = "employee" | "manager" | "admin";
 export type AppUser = {
   id: number;
   username: string;
-  role: "employee" | "manager" | "admin";
-  name?: string;
-  local?: boolean;
-} | null;
+  role: Role;
+};
 
-export function useUser(): { user: AppUser } {
-  const [user, setUser] = useState<AppUser>(() => {
-    try {
-      const raw = typeof window !== "undefined" ? localStorage.getItem("user") : null;
-      return raw ? (JSON.parse(raw) as AppUser) : null;
-    } catch {
-      return null;
-    }
+const USER_QUERY_KEY = ["me"] as const;
+
+async function fetchMe(): Promise<AppUser | null> {
+  const res = await fetch("/api/me", { credentials: "include" });
+  if (res.status === 401) return null;
+  if (!res.ok) throw new Error("Failed to load session");
+  return (await res.json()) as AppUser;
+}
+
+export function useUser(): { user: AppUser | null; isLoading: boolean } {
+  const { data, isLoading } = useQuery({
+    queryKey: USER_QUERY_KEY,
+    queryFn: fetchMe,
+    staleTime: 60_000,
+    retry: false,
   });
-
-  useEffect(() => {
-    const readUser = () => {
-      try {
-        const raw = localStorage.getItem("user");
-        setUser(raw ? (JSON.parse(raw) as AppUser) : null);
-      } catch {
-        setUser(null);
-      }
-    };
-
-    const handleStorage = () => readUser();
-    const handleUserChanged = () => readUser();
-
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener("user-changed", handleUserChanged as EventListener);
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener("user-changed", handleUserChanged as EventListener);
-    };
-  }, []);
-
-  return { user };
+  return { user: data ?? null, isLoading };
 }
 
-export function useUserRole(): string | null {
-  const { user } = useUser();
-  return user?.role ?? null;
+export function useUserRole(): Role | null {
+  return useUser().user?.role ?? null;
 }
 
-export function notifyUserChanged() {
-  try {
-    window.dispatchEvent(new Event("user-changed"));
-  } catch {}
+export function useInvalidateUser() {
+  const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: USER_QUERY_KEY });
+}
+
+export async function logout(): Promise<void> {
+  await fetch("/api/logout", { method: "POST", credentials: "include" });
 }

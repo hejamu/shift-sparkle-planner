@@ -3,12 +3,13 @@ import LanguageSwitcher from "../LanguageSwitcher";
 import { Button } from "@/components/ui/button";
 import { useLocation, Link } from "react-router-dom";
 import { useMemo } from "react";
-import { notifyUserChanged, useUser } from "@/hooks/use-user";
+import { logout, useInvalidateUser, useUser } from "@/hooks/use-user";
 import { useTranslation } from "react-i18next";
 
 const Header = () => {
   const location = useLocation();
   const { user } = useUser();
+  const invalidateUser = useInvalidateUser();
   const { t } = useTranslation();
 
   const navItems = useMemo(() => {
@@ -67,9 +68,9 @@ const Header = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  localStorage.removeItem("user");
-                  notifyUserChanged();
+                onClick={async () => {
+                  await logout();
+                  await invalidateUser();
                   window.location.href = "/login";
                 }}
               >

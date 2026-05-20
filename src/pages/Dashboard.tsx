@@ -4,16 +4,15 @@ import StatsCards from "@/components/dashboard/StatsCards";
 import QuickActions from "@/components/dashboard/QuickActions";
 import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
+import { useUser } from "@/hooks/use-user";
 
 const Dashboard = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { user, isLoading } = useUser();
   useEffect(() => {
-    const user = localStorage.getItem("user");
-    if (!user) {
-      navigate("/login");
-    }
-  }, [navigate]);
+    if (!isLoading && !user) navigate("/login");
+  }, [isLoading, user, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-subtle">

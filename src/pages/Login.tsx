@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useInvalidateUser, useUser } from '@/hooks/use-user';
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -8,14 +9,12 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { user, isLoading } = useUser();
+  const invalidateUser = useInvalidateUser();
 
   useEffect(() => {
-    // If already logged in, redirect to home
-    const user = localStorage.getItem('user');
-    if (user) {
-      navigate('/');
-    }
-  }, [navigate]);
+    if (!isLoading && user) navigate(user.role === 'employee' ? '/schedule' : '/');
+  }, [isLoading, user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,6 +23,7 @@ const LoginPage: React.FC = () => {
       const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ username, password }),
       });
       const data = await res.json();
@@ -31,14 +31,9 @@ const LoginPage: React.FC = () => {
         setError(data.error || t('login_failed'));
         return;
       }
-      // Store user info in localStorage for demo
-      localStorage.setItem('user', JSON.stringify(data));
-      if (data.role === 'employee') {
-        navigate('/schedule');
-      } else {
-        navigate('/');
-      }
-    } catch (err) {
+      await invalidateUser();
+      navigate(data.role === 'employee' ? '/schedule' : '/');
+    } catch {
       setError(t('network_error'));
     }
   };
