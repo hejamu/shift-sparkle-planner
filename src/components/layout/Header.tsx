@@ -1,17 +1,30 @@
 import { Calendar, Clock, Users, BarChart3, Settings } from "lucide-react";
+import LanguageSwitcher from "../LanguageSwitcher";
 import { Button } from "@/components/ui/button";
 import { useLocation, Link } from "react-router-dom";
+import { useMemo } from "react";
+import { notifyUserChanged, useUser } from "@/hooks/use-user";
+import { useTranslation } from "react-i18next";
 
 const Header = () => {
   const location = useLocation();
-  
-  const navItems = [
-    { icon: BarChart3, label: "Dashboard", path: "/" },
-    { icon: Calendar, label: "Schedule", path: "/schedule" },
-    { icon: Users, label: "Employees", path: "/employees" },
-    { icon: Clock, label: "Time Tracking", path: "/time-tracking" },
-    { icon: Settings, label: "Settings", path: "/settings" },
-  ];
+  const { user } = useUser();
+  const { t } = useTranslation();
+
+  const navItems = useMemo(() => {
+    if (user && user.role === "employee") {
+      return [
+        { icon: Calendar, label: t("schedule"), path: "/schedule" },
+        { icon: Settings, label: t("settings"), path: "/employee-settings" },
+      ];
+    }
+    return [
+      { icon: BarChart3, label: t("dashboard"), path: "/" },
+      { icon: Calendar, label: t("schedule"), path: "/schedule" },
+      { icon: Users, label: t("employees"), path: "/employees" },
+      { icon: Settings, label: t("administration"), path: "/administration" },
+    ];
+  }, [user, t]);
 
   return (
     <header className="border-b bg-card shadow-card">
@@ -22,13 +35,13 @@ const Header = () => {
               <div className="h-8 w-8 rounded-lg bg-gradient-primary flex items-center justify-center">
                 <Calendar className="h-5 w-5 text-primary-foreground" />
               </div>
-              <h1 className="text-xl font-bold text-foreground">ShiftPlanner</h1>
+              <h1 className="text-xl font-bold text-foreground">{t("appTitle")}</h1>
             </div>
             
             <nav className="hidden md:flex items-center space-x-1">
               {navItems.map((item) => (
                 <Button
-                  key={item.label}
+                  key={item.path}
                   variant={location.pathname === item.path ? "default" : "ghost"}
                   size="sm"
                   className="h-9 px-3 transition-smooth"
@@ -43,14 +56,26 @@ const Header = () => {
             </nav>
           </div>
 
-          <div className="flex items-center space-x-3">
-            <Button variant="outline" size="sm">
-              <Clock className="h-4 w-4 mr-2" />
-              Clock In
-            </Button>
-            <Button variant="hero" size="sm">
-              Add Shift
-            </Button>
+          {/* Removed Clock In and Add Shift buttons */}
+
+          <div className="flex items-center space-x-4">
+            {user && (
+              <span className="text-muted-foreground">{user.username} ({user.role})</span>
+            )}
+            <LanguageSwitcher />
+            {user && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  localStorage.removeItem("user");
+                  notifyUserChanged();
+                  window.location.href = "/login";
+                }}
+              >
+                {t("logout")}
+              </Button>
+            )}
           </div>
         </div>
       </div>
