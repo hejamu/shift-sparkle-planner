@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -10,26 +10,15 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 const shiftSchema = z.object({
-  employee: z.string().min(1, "Please select an employee"),
+  employee: z.string().optional(),
   date: z.string().min(1, "Please select a date"),
-  startTime: z.string().min(1, "Please select start time"),
-  endTime: z.string().min(1, "Please select end time"),
-  role: z.string().min(1, "Please select a role"),
-  location: z.string().optional(),
+  time: z.string().min(1, "Please select shift start time"),
+  end_time: z.string().min(1, "Please select shift end time"),
+  shiftType: z.string().min(1, "Please select a shift type"),
   notes: z.string().optional(),
-}).refine((data) => {
-  // Validate that end time is after start time
-  if (data.startTime && data.endTime) {
-    const start = new Date(`2000-01-01T${data.startTime}`);
-    const end = new Date(`2000-01-01T${data.endTime}`);
-    return end > start;
-  }
-  return true;
-}, {
-  message: "End time must be after start time",
-  path: ["endTime"],
 });
 
 type ShiftFormData = z.infer<typeof shiftSchema>;
@@ -40,116 +29,99 @@ interface AddShiftDialogProps {
   onShiftAdded: (shift: ShiftFormData) => void;
 }
 
+
 const AddShiftDialog = ({ children, selectedDate, onShiftAdded }: AddShiftDialogProps) => {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
-  
+  const { t } = useTranslation();
+
+  // Dynamic employees, roles
+  const [employees, setEmployees] = useState<{ id: string; name: string; role: string }[]>([]);
+  const [shiftTypes, setShiftTypes] = useState<{ id: string; name: string; color: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Time options for select (every 30 min from 06:00 to 22:00)
+  const timeOptions = Array.from({ length: 33 }, (_, i) => {
+    const hour = Math.floor((i * 30) / 60) + 6;
+    const min = (i * 30) % 60;
+    const value = `${hour.toString().padStart(2, "0")}:${min.toString().padStart(2, "0")}`;
+    return { value, label: value };
+  });
+
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
+      setError(null);
+      try {
+        const empRes = await fetch("/api/employees");
+        if (!empRes.ok) throw new Error("Failed to fetch employees");
+        const empData = await empRes.json();
+        setEmployees(empData);
+  const shiftTypeRes = await fetch("/api/shift-types");
+  if (!shiftTypeRes.ok) throw new Error("Failed to fetch shift types");
+  const shiftTypeData = await shiftTypeRes.json();
+  setShiftTypes(shiftTypeData);
+      } catch (err: any) {
+        setError(err.message || "Failed to load data");
+      }
+      setLoading(false);
+    }
+    fetchData();
+  }, []);
+
   const form = useForm<ShiftFormData>({
     resolver: zodResolver(shiftSchema),
     defaultValues: {
-      employee: "",
+  employee: "unassigned",
       date: selectedDate ? selectedDate.toISOString().split('T')[0] : "",
-      startTime: "",
-      endTime: "",
-      role: "",
-      location: "",
-      notes: "",
+  time: "",
+  end_time: "",
+  shiftType: "",
+  notes: "",
     },
   });
 
-  // Sample employees data
-  const employees = [
-    { id: "1", name: "Sarah Johnson", role: "Manager" },
-    { id: "2", name: "Mike Chen", role: "Sales Associate" },
-    { id: "3", name: "Emily Davis", role: "Cashier" },
-    { id: "4", name: "David Wilson", role: "Stock Associate" },
-    { id: "5", name: "Lisa Brown", role: "Cashier" },
-    { id: "6", name: "John Smith", role: "Security" },
-    { id: "7", name: "Anna Garcia", role: "Customer Service" },
-  ];
-
-  const roles = [
-    "Manager",
-    "Assistant Manager", 
-    "Sales Associate",
-    "Cashier",
-    "Stock Associate",
-    "Customer Service",
-    "Security",
-    "Maintenance",
-  ];
-
-  const locations = [
-    "Front Desk",
-    "Sales Floor",
-    "Register 1",
-    "Register 2", 
-    "Register 3",
-    "Warehouse",
-    "Customer Service",
-    "Security Desk",
-    "Stock Room",
-  ];
-
-  // Generate time options (30-minute intervals)
-  const timeOptions = Array.from({ length: 48 }, (_, i) => {
-    const hour = Math.floor(i / 2);
-    const minute = i % 2 === 0 ? "00" : "30";
-    const time = `${hour.toString().padStart(2, "0")}:${minute}`;
-    const displayTime = new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-    return { value: time, label: displayTime };
-  });
-
   const onSubmit = (data: ShiftFormData) => {
-    onShiftAdded(data);
-    toast({
-      title: "Shift Added Successfully",
-      description: `Shift for ${employees.find(e => e.id === data.employee)?.name} has been created.`,
-    });
-    form.reset();
+  onShiftAdded(data);
+    toast({ title: t("shiftCreated"), description: t("shiftCreatedDesc") });
     setOpen(false);
+    form.reset();
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
+      <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <Calendar className="h-5 w-5 text-primary" />
-            <span>Add New Shift</span>
+            <span>{t("addNewShift")}</span>
           </DialogTitle>
         </DialogHeader>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+        {loading ? (
+          <div className="py-8 text-center text-muted-foreground">{t("loading")}</div>
+        ) : error ? (
+          <div className="py-8 text-center text-destructive font-semibold">Error: {error}</div>
+        ) : (
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
                 name="employee"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center space-x-1">
-                      <User className="h-4 w-4" />
-                      <span>Employee</span>
-                    </FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormLabel>{t("employee")}</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select employee" />
+                          <SelectValue placeholder={t("selectEmployee")} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {employees.map((employee) => (
-                          <SelectItem key={employee.id} value={employee.id}>
-                            {employee.name}
-                          </SelectItem>
+                        <SelectItem value="unassigned">{t("unassigned")}</SelectItem>
+                        {employees.map(emp => (
+                          <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -157,13 +129,12 @@ const AddShiftDialog = ({ children, selectedDate, onShiftAdded }: AddShiftDialog
                   </FormItem>
                 )}
               />
-
               <FormField
                 control={form.control}
                 name="date"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Date</FormLabel>
+                    <FormLabel>{t("date")}</FormLabel>
                     <FormControl>
                       <Input type="date" {...field} />
                     </FormControl>
@@ -171,80 +142,66 @@ const AddShiftDialog = ({ children, selectedDate, onShiftAdded }: AddShiftDialog
                   </FormItem>
                 )}
               />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="startTime"
+                name="time"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center space-x-1">
-                      <Clock className="h-4 w-4" />
-                      <span>Start Time</span>
-                    </FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Start time" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent className="max-h-60">
-                        {timeOptions.map((time) => (
-                          <SelectItem key={time.value} value={time.value}>
-                            {time.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>{t("time")}</FormLabel>
+                    <div className="flex gap-2">
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={t("start")} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {timeOptions.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormField
+                        control={form.control}
+                        name="end_time"
+                        render={({ field: endField }) => (
+                          <FormItem>
+                            <Select onValueChange={endField.onChange} value={endField.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder={t("end")} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {timeOptions.map(opt => (
+                                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
               <FormField
                 control={form.control}
-                name="endTime"
+                name="shiftType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>End Time</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormLabel>{t("shiftType")}</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="End time" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent className="max-h-60">
-                        {timeOptions.map((time) => (
-                          <SelectItem key={time.value} value={time.value}>
-                            {time.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Role</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select role" />
+                          <SelectValue placeholder={t("selectShiftType")} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {roles.map((role) => (
-                          <SelectItem key={role} value={role}>
-                            {role}
+                        {shiftTypes.map(st => (
+                          <SelectItem key={st.id} value={st.id}>
+                            <span style={{ background: st.color, color: '#fff', padding: '2px 8px', borderRadius: '4px' }}>{st.name}</span>
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -253,64 +210,23 @@ const AddShiftDialog = ({ children, selectedDate, onShiftAdded }: AddShiftDialog
                   </FormItem>
                 )}
               />
-
               <FormField
                 control={form.control}
-                name="location"
+                name="notes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center space-x-1">
-                      <MapPin className="h-4 w-4" />
-                      <span>Location</span>
-                    </FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select location" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {locations.map((location) => (
-                          <SelectItem key={location} value={location}>
-                            {location}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>{t("notes")}</FormLabel>
+                    <FormControl>
+                      <Textarea rows={2} placeholder={t("optionalNotes")} {...field} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes (Optional)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Add any additional notes about this shift..."
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="flex justify-end space-x-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" variant="hero">
-                Add Shift
-              </Button>
-            </div>
-          </form>
-        </Form>
+              <Button type="submit" className="w-full">{t("addShift")}</Button>
+            </form>
+          </Form>
+        )}
       </DialogContent>
     </Dialog>
   );

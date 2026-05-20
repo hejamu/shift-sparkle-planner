@@ -1,13 +1,46 @@
 import { Users, Clock, Calendar, CheckCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useQuery } from "@tanstack/react-query";
+import { fetchEmployees } from "@/lib/employeeApi";
+import { fetchShifts } from "@/lib/shiftApi";
 
 const ScheduleStats = () => {
+  const { data: employees = [], isLoading: empLoading } = useQuery({
+    queryKey: ["employees"],
+    queryFn: fetchEmployees,
+  });
+  // Calculate start and end of current week (Thursday-based, like WeeklyCalendar)
+  const getWeekStart = (date: Date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - ((day + 7 - 4) % 7);
+    return new Date(d.setDate(diff));
+  };
+  const now = new Date();
+  const weekStart = getWeekStart(now);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  const { data: shifts = [], isLoading } = useQuery({
+    queryKey: ["shifts"],
+    queryFn: fetchShifts,
+  });
+
+  // Coverage calculation: percentage of future shifts with employee assigned
+  const futureShifts = shifts.filter((shift: any) => new Date(shift.date) >= now);
+  const weekShifts = shifts.filter((shift: any) => {
+    const shiftDate = new Date(shift.date);
+    return shiftDate >= weekStart && shiftDate <= weekEnd;
+  });
+  const assignedShifts = futureShifts.filter((shift: any) => !!shift.employee);
+  const coveragePercent = futureShifts.length > 0 ? Math.round((assignedShifts.length / futureShifts.length) * 100) : 0;
+  const openShifts = futureShifts.length - assignedShifts.length;
+
   const stats = [
     {
       title: "This Week",
-      value: "42 shifts",
-      subtext: "8 departments",
+      value: isLoading ? "..." : `${weekShifts.length} shifts`,
+      subtext: "",
       icon: Calendar,
       color: "text-primary",
       bgColor: "bg-primary/10",
@@ -22,16 +55,16 @@ const ScheduleStats = () => {
     },
     {
       title: "Coverage",
-      value: "94%",
-      subtext: "3 open shifts",
+      value: isLoading ? "..." : `${coveragePercent}%`,
+      subtext: isLoading ? "" : `${openShifts} open shifts`,
       icon: CheckCircle,
       color: "text-success",
       bgColor: "bg-success/10",
     },
     {
       title: "On Schedule",
-      value: "21 people",
-      subtext: "3 called out",
+      value: empLoading ? "..." : `${employees.filter((e: any) => e.active).length} people`,
+      subtext: "",
       icon: Users,
       color: "text-warning",
       bgColor: "bg-warning/10",
