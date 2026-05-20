@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 
-const flags = {
+const flags: Record<string, string> = {
   en: "🇬🇧",
   de: "🇩🇪",
 };

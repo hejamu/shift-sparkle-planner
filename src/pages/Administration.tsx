@@ -7,7 +7,6 @@ import {
   fetchEmployees,
   addEmployeeApi,
   updateEmployeeRoleApi,
-  EmployeeApi,
 } from "../lib/employeeApi";
 import { getSetting, updateSetting } from "../lib/settingsApi";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -94,9 +93,7 @@ const Administration: React.FC = () => {
     updateRoleMutation.mutate({ id, isManager: !isManager });
   };
 
-    // Fetch shift types
     const [shiftTypes, setShiftTypes] = useState<any[] | null>(null);
-    const [shiftTypesError, setShiftTypesError] = useState<string | null>(null);
     useEffect(() => {
       fetch('/api/shift-types')
         .then(res => {
@@ -104,7 +101,7 @@ const Administration: React.FC = () => {
           return res.json();
         })
         .then(data => setShiftTypes(data))
-        .catch(err => setShiftTypesError(err.message));
+        .catch(() => setShiftTypes(null));
     }, []);
 
   // Auto-assign settings

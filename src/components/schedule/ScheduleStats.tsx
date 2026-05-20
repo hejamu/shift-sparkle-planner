@@ -1,6 +1,5 @@
 import { Users, Clock, Calendar, CheckCircle } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { fetchEmployees } from "@/lib/employeeApi";
 import { fetchShifts } from "@/lib/shiftApi";

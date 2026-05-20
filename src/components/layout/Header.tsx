@@ -1,4 +1,4 @@
-import { Calendar, Clock, Users, BarChart3, Settings } from "lucide-react";
+import { Calendar, Users, BarChart3, Settings } from "lucide-react";
 import LanguageSwitcher from "../LanguageSwitcher";
 import { Button } from "@/components/ui/button";
 import { useLocation, Link } from "react-router-dom";

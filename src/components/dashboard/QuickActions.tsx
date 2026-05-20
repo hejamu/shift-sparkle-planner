@@ -57,7 +57,7 @@ const QuickActions = () => {
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-3">
-          {actions.filter(a => a.roles.includes(role)).map((action) => (
+          {actions.filter(a => role !== null && a.roles.includes(role)).map((action) => (
             <Button
               key={action.label}
               variant={action.variant}

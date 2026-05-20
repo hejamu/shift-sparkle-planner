@@ -40,10 +40,6 @@ const dbGet = <T = any>(sql: string, params: any[] = []): Promise<T | undefined>
   new Promise((resolve, reject) => {
     db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row as T)));
   });
-const dbAll = <T = any>(sql: string, params: any[] = []): Promise<T[]> =>
-  new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => (err ? reject(err) : resolve(rows as T[])));
-  });
 
 declare module 'express-serve-static-core' {
   interface Request {

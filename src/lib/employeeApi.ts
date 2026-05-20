@@ -1,5 +1,3 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-
 export interface EmployeeApi {
   id: number;
   name: string;

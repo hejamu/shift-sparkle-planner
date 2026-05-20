@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import Header from "../components/layout/Header";
-import { useTranslation } from "react-i18next";
 
 const fetchEmployees = async () => {
   const res = await fetch("/api/employees");
@@ -39,7 +38,6 @@ const deleteEmployee = async (id: number) => {
 
 const EmployeesPage = () => {
   const queryClient = useQueryClient();
-  const { t } = useTranslation();
   const { data: employees = [], isLoading, error } = useQuery({
     queryKey: ["employees"],
     queryFn: fetchEmployees,
