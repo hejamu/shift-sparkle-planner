@@ -10,6 +10,7 @@ import { fetchShifts, addShift, updateShift, deleteShift, Shift } from "@/lib/sh
 import { fetchEmployees } from "@/lib/employeeApi";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { applyForShift, fetchShiftApplications, ShiftApplication } from "@/lib/shiftApplicationApi";
+import { getWeekStart, getISOWeek } from "@/lib/week";
 import { useUserRole, useUser } from "@/hooks/use-user";
 import { useTranslation } from "react-i18next";
 
@@ -135,15 +136,6 @@ const WeeklyCalendar = ({ currentDate: externalDate, onDateChange }: WeeklyCalen
     await addShiftMutation.mutateAsync(shiftPayload);
   };
   
-  // Get the start of the week (Thursday)
-  const getWeekStart = (date: Date) => {
-    const d = new Date(date);
-    const day = d.getDay();
-    // Thursday is 4, so calculate how many days to subtract to get to Thursday
-    const diff = d.getDate() - ((day + 7 - 4) % 7);
-    return new Date(d.setDate(diff));
-  };
-
   const weekStart = getWeekStart(currentDate);
   // Create week days starting from Thursday
   const weekDays = Array.from({ length: 7 }, (_, i) => {
@@ -271,20 +263,6 @@ const WeeklyCalendar = ({ currentDate: externalDate, onDateChange }: WeeklyCalen
 
   // Use layouted shifts for display when available
   const allShifts = layoutedShifts.length ? layoutedShifts : mappedShifts;
-
-  // Helper to get ISO week number (Kalenderwoche)
-  const getISOWeek = (date: Date) => {
-    const tempDate = new Date(date.getTime());
-    tempDate.setHours(0, 0, 0, 0);
-    // Thursday in current week decides the year
-    tempDate.setDate(tempDate.getDate() + 3 - ((tempDate.getDay() + 6) % 7));
-    // January 4th is always in week 1
-    const week1 = new Date(tempDate.getFullYear(), 0, 4);
-    // Adjust to Thursday in week 1
-    week1.setDate(week1.getDate() + 3 - ((week1.getDay() + 6) % 7));
-    // Calculate full weeks to this date
-    return 1 + Math.round(((tempDate.getTime() - week1.getTime()) / 86400000 - 3) / 7);
-  };
 
   const [applyLoading, setApplyLoading] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);

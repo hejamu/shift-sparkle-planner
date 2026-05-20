@@ -4,8 +4,8 @@ import * as sqlite3 from 'sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
 import { parseShowDate } from '../lib/cinetixxParser';
+import { getWeekEnd, getWeekStart } from '../lib/week';
 import { XMLParser } from 'fast-xml-parser';
-// src/server/api.ts
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -275,20 +275,9 @@ app.post('/api/shift-applications', async (req: Request, res: Response) => {
       }
     }
 
-    // Calculate week boundaries (Thursday to Wednesday, matching frontend)
     const shiftDate = new Date(shift.date);
-    const getWeekStart = (date: Date) => {
-      const d = new Date(date);
-      const day = d.getDay();
-      const diff = d.getDate() - ((day + 7 - 4) % 7);
-      d.setDate(diff);
-      d.setHours(0, 0, 0, 0);
-      return d;
-    };
     const weekStart = getWeekStart(shiftDate);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    weekEnd.setHours(23, 59, 59, 999);
+    const weekEnd = getWeekEnd(shiftDate);
 
     const weekStartStr = weekStart.toISOString().slice(0, 10);
     const weekEndStr = weekEnd.toISOString().slice(0, 10);

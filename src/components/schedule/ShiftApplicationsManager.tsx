@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchShiftApplications, updateShiftApplicationStatus, ShiftApplication } from "@/lib/shiftApplicationApi";
 import { fetchShifts, Shift, updateShift } from "@/lib/shiftApi";
 import { fetchEmployees } from "@/lib/employeeApi";
+import { getISOWeek, getWeekEnd, getWeekStart } from "@/lib/week";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,27 +27,8 @@ const ShiftApplicationsManager = ({ currentDate: externalDate, onDateChange }: S
   const currentDate = externalDate ?? internalDate;
   const setCurrentDate = onDateChange ?? setInternalDate;
 
-  // Get the start of the week (Thursday) - same logic as WeeklyCalendar
-  const getWeekStart = (date: Date) => {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - ((day + 7 - 4) % 7);
-    return new Date(d.setDate(diff));
-  };
-
-  // Helper to get ISO week number (Kalenderwoche)
-  const getISOWeek = (date: Date) => {
-    const tempDate = new Date(date.getTime());
-    tempDate.setHours(0, 0, 0, 0);
-    tempDate.setDate(tempDate.getDate() + 3 - ((tempDate.getDay() + 6) % 7));
-    const week1 = new Date(tempDate.getFullYear(), 0, 4);
-    week1.setDate(week1.getDate() + 3 - ((week1.getDay() + 6) % 7));
-    return 1 + Math.round(((tempDate.getTime() - week1.getTime()) / 86400000 - 3) / 7);
-  };
-
   const weekStart = getWeekStart(currentDate);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
+  const weekEnd = getWeekEnd(currentDate);
 
   const navigateWeek = (direction: 'prev' | 'next') => {
     const newDate = new Date(currentDate);
@@ -114,15 +96,10 @@ const ShiftApplicationsManager = ({ currentDate: externalDate, onDateChange }: S
     });
   };
 
-  // Filter shifts to current week
   const isInCurrentWeek = (dateStr: string) => {
     const shiftDate = new Date(dateStr);
     shiftDate.setHours(0, 0, 0, 0);
-    const start = new Date(weekStart);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(weekEnd);
-    end.setHours(23, 59, 59, 999);
-    return shiftDate >= start && shiftDate <= end;
+    return shiftDate >= weekStart && shiftDate <= weekEnd;
   };
 
   // Pending applications for current week only
