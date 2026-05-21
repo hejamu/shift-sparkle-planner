@@ -34,6 +34,9 @@ jobs:
         run: npm run lint
         continue-on-error: true # lint baseline still has pre-existing issues; surface them without failing CI
 
+      - name: Audit (production deps, high+ severity)
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Test
         run: npm test -- --run
 
