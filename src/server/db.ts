@@ -3,7 +3,8 @@ import * as path from 'path';
 import * as bcrypt from 'bcryptjs';
 import { logger } from './logger';
 
-export const DB_PATH = path.join('/data/shiftplanner.sqlite');
+// Override via DB_PATH env var (used by tests to point at a temp file).
+export const DB_PATH = process.env.DB_PATH || path.join('/data/shiftplanner.sqlite');
 export const REQUIRED_TABLES = ['users', 'shift_types', 'shifts', 'shift_applications', 'settings'] as const;
 export const BCRYPT_ROUNDS = 10;
 
