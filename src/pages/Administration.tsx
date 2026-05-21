@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Settings2, Save, Loader2 } from "lucide-react";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 const dropAllTables = async (): Promise<void> => {
   const res = await fetch('/api/drop-tables', { method: 'POST' });
@@ -187,9 +188,16 @@ const Administration: React.FC = () => {
             )}
             {/* Drop All Tables button */}
             {dbExists && (
-              <button
-                className="mt-2 bg-red-600 text-white px-4 py-1 rounded"
-                onClick={async () => {
+              <ConfirmDialog
+                trigger={
+                  <button className="mt-2 bg-red-600 text-white px-4 py-1 rounded">
+                    {t("dropAllTables")}
+                  </button>
+                }
+                title={t("confirmDropTablesTitle")}
+                description={t("confirmDropTablesDescription")}
+                confirmLabel={t("dropAllTables")}
+                onConfirm={async () => {
                   try {
                     await dropAllTables();
                     setDbValid(false);
@@ -198,9 +206,7 @@ const Administration: React.FC = () => {
                     setDbError(err.message);
                   }
                 }}
-              >
-                {t("dropAllTables")}
-              </button>
+              />
             )}
             {dbError && <div className="text-red-500 mt-2">{dbError}</div>}
           </div>

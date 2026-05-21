@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Header from "../components/layout/Header";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 const fetchEmployees = async () => {
   const res = await fetch("/api/employees");
@@ -143,12 +144,17 @@ const EmployeesPage = () => {
                   </select>
                 </td>
                 <td className="p-2">
-                  <button
-                    className="bg-red-500 text-white px-2 py-1 rounded"
-                    onClick={() => deleteMutation.mutate(emp.id)}
-                  >
-                    {t("delete")}
-                  </button>
+                  <ConfirmDialog
+                    trigger={
+                      <button className="bg-red-500 text-white px-2 py-1 rounded">
+                        {t("delete")}
+                      </button>
+                    }
+                    title={t("confirmDeleteEmployeeTitle")}
+                    description={t("confirmDeleteEmployeeDescription", { name: emp.name })}
+                    confirmLabel={t("delete")}
+                    onConfirm={() => deleteMutation.mutate(emp.id)}
+                  />
                 </td>
               </tr>
             ))}

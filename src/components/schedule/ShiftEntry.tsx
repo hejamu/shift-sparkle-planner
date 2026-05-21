@@ -4,6 +4,7 @@ import { Check, CheckCircle, Clock, UserMinus, UserPlus, X } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import { useShiftApplicationActions } from "@/hooks/use-shift-application-actions";
 import type { Shift } from "@/lib/shiftApi";
 import type { ShiftApplication } from "@/lib/shiftApplicationApi";
@@ -209,14 +210,21 @@ const ShiftEntry = ({
 
         <div className="pt-3 border-t flex items-center justify-between">
           {isManagerOrAdmin ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={() => onDelete(shift.id)}
-            >
-              {t("delete")}
-            </Button>
+            <ConfirmDialog
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  {t("delete")}
+                </Button>
+              }
+              title={t("confirmDeleteShiftTitle")}
+              description={t("confirmDeleteShiftDescription")}
+              confirmLabel={t("delete")}
+              onConfirm={() => onDelete(shift.id)}
+            />
           ) : (
             <div className="flex-1">{renderEmployeeActions()}</div>
           )}
