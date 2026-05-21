@@ -139,6 +139,10 @@
   "applicationPending": "Bewerbung wartet auf Genehmigung",
   "autoAssignedToYou": "Automatisch dir zugewiesen",
   "assignedToYou": "Dir zugewiesen",
+  "assignedTo": "Zugewiesen an",
+  "assign": "Zuweisen",
+  "assignDirectly": "Direkt zuweisen",
+  "unassign": "Zuweisung aufheben",
   "alreadyApplied": "Du hast dich bereits beworben",
 
   "english": "English",

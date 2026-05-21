@@ -139,6 +139,10 @@
   "applicationPending": "Application pending approval",
   "autoAssignedToYou": "Auto-assigned to you",
   "assignedToYou": "Assigned to you",
+  "assignedTo": "Assigned to",
+  "assign": "Assign",
+  "assignDirectly": "Assign someone else",
+  "unassign": "Unassign",
   "alreadyApplied": "You have already applied",
 
   "english": "English",

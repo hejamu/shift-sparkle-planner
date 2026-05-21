@@ -11,7 +11,7 @@ import ShiftEntry from "./ShiftEntry";
 
 import { addShift, deleteShift, fetchShifts, Shift, updateShift } from "@/lib/shiftApi";
 import { fetchEmployees } from "@/lib/employeeApi";
-import { applyForShift, fetchShiftApplications, ShiftApplication } from "@/lib/shiftApplicationApi";
+import { applyForShift, fetchShiftApplications } from "@/lib/shiftApplicationApi";
 import { getISOWeek, getWeekEnd, getWeekStart } from "@/lib/week";
 import { layoutShiftsForWeek, ShiftType } from "@/lib/shiftLayout";
 import { useUser, useUserRole } from "@/hooks/use-user";
@@ -60,10 +60,6 @@ const WeeklyCalendar = ({ currentDate: externalDate, onDateChange }: WeeklyCalen
     queryFn: () => fetchShiftApplications(selectedShift?.id),
     enabled: !!selectedShift?.id && (role === "manager" || role === "admin"),
   });
-
-  const rejectedApplications = selectedShiftApplications.filter(
-    (app: ShiftApplication) => app.status === "rejected",
-  );
 
   const addShiftMutation = useMutation({
     mutationFn: addShift,
@@ -415,7 +411,7 @@ const WeeklyCalendar = ({ currentDate: externalDate, onDateChange }: WeeklyCalen
                                     shiftTypes={shiftTypes}
                                     employees={employees}
                                     role={role}
-                                    rejectedApplications={rejectedApplications}
+                                    shiftApplications={selectedShift?.id === shift.id ? selectedShiftApplications : []}
                                     myApplication={getMyApplicationForShift(shift.id)}
                                     applyLoading={applyLoading}
                                     applySuccess={applySuccess}

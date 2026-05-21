@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchShiftApplications, updateShiftApplicationStatus, ShiftApplication } from "@/lib/shiftApplicationApi";
-import { fetchShifts, Shift, updateShift } from "@/lib/shiftApi";
+import { useQuery } from "@tanstack/react-query";
+import { fetchShiftApplications, ShiftApplication } from "@/lib/shiftApplicationApi";
+import { fetchShifts } from "@/lib/shiftApi";
 import { fetchEmployees } from "@/lib/employeeApi";
 import { getISOWeek, getWeekEnd, getWeekStart } from "@/lib/week";
+import { useShiftApplicationActions } from "@/hooks/use-shift-application-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,8 +20,8 @@ interface ShiftApplicationsManagerProps {
 
 const ShiftApplicationsManager = ({ currentDate: externalDate, onDateChange }: ShiftApplicationsManagerProps = {}) => {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { approve, reject } = useShiftApplicationActions();
   const [internalDate, setInternalDate] = useState(new Date());
   
   // Use external date if provided, otherwise use internal state
@@ -58,22 +59,6 @@ const ShiftApplicationsManager = ({ currentDate: externalDate, onDateChange }: S
       if (!res.ok) throw new Error('Failed to fetch shift types');
       return res.json();
     }
-  });
-
-  const updateStatusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: string }) => updateShiftApplicationStatus(id, status),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["shift-applications"] });
-    },
-  });
-
-  const assignShiftMutation = useMutation({
-    mutationFn: ({ shiftId, employeeId, shift }: { shiftId: number; employeeId: number; shift: Shift }) =>
-      updateShift(shiftId, { ...shift, employee: employeeId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["shifts"] });
-      queryClient.invalidateQueries({ queryKey: ["shift-applications"] });
-    },
   });
 
   const getEmployeeName = (id: number) => {
@@ -122,37 +107,19 @@ const ShiftApplicationsManager = ({ currentDate: externalDate, onDateChange }: S
   const handleApprove = async (application: ShiftApplication) => {
     const shift = getShift(application.shift_id);
     if (!shift) return;
-
     try {
-      // Assign shift to employee
-      await assignShiftMutation.mutateAsync({
-        shiftId: application.shift_id,
-        employeeId: application.employee_id,
-        shift,
-      });
-
-      // Mark this application as approved
-      await updateStatusMutation.mutateAsync({ id: application.id, status: "approved" });
-
-      // Reject other applications for this shift
-      const otherApps = pendingApplications.filter(
-        (a) => a.shift_id === application.shift_id && a.id !== application.id
-      );
-      for (const other of otherApps) {
-        await updateStatusMutation.mutateAsync({ id: other.id, status: "rejected" });
-      }
-
+      await approve.mutateAsync({ application, shift });
       toast({ title: t("applicationApproved"), description: t("shiftAssignedToEmployee") });
-    } catch (err) {
+    } catch {
       toast({ title: t("error"), description: t("failedToUpdateApplication"), variant: "destructive" });
     }
   };
 
   const handleReject = async (application: ShiftApplication) => {
     try {
-      await updateStatusMutation.mutateAsync({ id: application.id, status: "rejected" });
+      await reject.mutateAsync(application);
       toast({ title: t("applicationRejected") });
-    } catch (err) {
+    } catch {
       toast({ title: t("error"), description: t("failedToUpdateApplication"), variant: "destructive" });
     }
   };
