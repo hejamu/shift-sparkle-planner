@@ -2,6 +2,7 @@ import express, { type Express } from 'express';
 import cookieParser from 'cookie-parser';
 import pinoHttp from 'pino-http';
 import { csrfProtection } from './csrf';
+import { dbGet } from './db';
 import { logger } from './logger';
 import { registerAuthRoutes } from './auth';
 import { registerAdminRoutes } from './routes/admin';
@@ -33,7 +34,17 @@ export function buildApp(): Express {
   app.use(express.json({ limit: '64kb' }));
   app.use(cookieParser());
 
-  app.get('/api/health', (_req, res) => res.json({ ok: true }));
+  app.get('/api/health', async (_req, res) => {
+    try {
+      // Cheap round-trip to confirm the DB connection is alive. Doesn't
+      // touch user data; just proves the process can still talk to sqlite.
+      await dbGet('SELECT 1');
+      res.json({ ok: true });
+    } catch (err) {
+      logger.error({ err }, 'Health check failed');
+      res.status(503).json({ ok: false });
+    }
+  });
 
   app.use(csrfProtection);
 
