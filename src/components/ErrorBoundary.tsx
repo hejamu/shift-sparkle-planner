@@ -1,9 +1,10 @@
 import { Component, ErrorInfo, ReactNode } from "react";
+import { withTranslation, WithTranslation } from "react-i18next";
 import { AlertTriangle, RefreshCw, Bug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-interface Props {
+interface Props extends WithTranslation {
   children: ReactNode;
   fallback?: ReactNode;
 }
@@ -44,25 +45,25 @@ class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback;
       }
 
+      const { t } = this.props;
+
       return (
         <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
           <Card className="max-w-2xl w-full shadow-lg border-destructive/20">
             <CardHeader className="border-b bg-destructive/5">
               <CardTitle className="flex items-center gap-3 text-destructive">
                 <AlertTriangle className="h-6 w-6" />
-                Something went wrong
+                {t("errorSomethingWentWrong")}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
-              <p className="text-muted-foreground">
-                An error occurred while rendering this page. This is usually caused by a code issue.
-              </p>
+              <p className="text-muted-foreground">{t("errorOccurredRendering")}</p>
 
               {this.state.error && (
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-destructive flex items-center gap-2">
                     <Bug className="h-4 w-4" />
-                    Error Message:
+                    {t("errorMessageLabel")}:
                   </p>
                   <pre className="bg-muted/50 border border-border rounded-md p-3 text-sm overflow-auto max-h-32 text-destructive">
                     {this.state.error.message}
@@ -73,7 +74,7 @@ class ErrorBoundary extends Component<Props, State> {
               {this.state.errorInfo && (
                 <details className="group">
                   <summary className="text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
-                    Show technical details (for developers)
+                    {t("showTechnicalDetails")}
                   </summary>
                   <pre className="mt-2 bg-muted/50 border border-border rounded-md p-3 text-xs overflow-auto max-h-64 text-muted-foreground">
                     {this.state.error?.stack}
@@ -85,11 +86,11 @@ class ErrorBoundary extends Component<Props, State> {
 
               <div className="flex gap-3 pt-4">
                 <Button onClick={this.handleReset} variant="outline">
-                  Try Again
+                  {t("tryAgain")}
                 </Button>
                 <Button onClick={this.handleReload} variant="default">
                   <RefreshCw className="h-4 w-4 mr-2" />
-                  Reload Page
+                  {t("reloadPage")}
                 </Button>
               </div>
             </CardContent>
@@ -102,4 +103,4 @@ class ErrorBoundary extends Component<Props, State> {
   }
 }
 
-export default ErrorBoundary;
+export default withTranslation()(ErrorBoundary);

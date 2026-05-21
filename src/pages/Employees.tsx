@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import Header from "../components/layout/Header";
 
 const fetchEmployees = async () => {
@@ -38,6 +39,7 @@ const deleteEmployee = async (id: number) => {
 
 const EmployeesPage = () => {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const { data: employees = [], isLoading, error } = useQuery({
     queryKey: ["employees"],
     queryFn: fetchEmployees,
@@ -64,7 +66,7 @@ const EmployeesPage = () => {
     e.preventDefault();
     setFormError("");
     if (!name || !username || !password) {
-      setFormError("Name, username, and password required");
+      setFormError(t("nameUsernamePasswordRequired"));
       return;
     }
     try {
@@ -74,7 +76,7 @@ const EmployeesPage = () => {
       setUsername("");
       setPassword("");
     } catch (err: any) {
-      setFormError(err.message || "Failed to add employee");
+      setFormError(err.message || t("failedToAddEmployee"));
     }
   };
 
@@ -82,47 +84,47 @@ const EmployeesPage = () => {
     <>
       <Header />
       <div className="max-w-xl mx-auto py-8">
-        <h2 className="text-2xl font-bold mb-4">Employees</h2>
+        <h2 className="text-2xl font-bold mb-4">{t("employees")}</h2>
       <form onSubmit={handleAdd} className="mb-6 flex gap-2 items-end">
         <input
           type="text"
-          placeholder="Name"
+          placeholder={t("name")}
           value={name}
           onChange={e => setName(e.target.value)}
           className="border p-2 rounded w-32"
         />
         <input
           type="text"
-          placeholder="Username"
+          placeholder={t("username")}
           value={username}
           onChange={e => setUsername(e.target.value)}
           className="border p-2 rounded w-32"
         />
         <input
           type="password"
-          placeholder="Password"
+          placeholder={t("password")}
           value={password}
           onChange={e => setPassword(e.target.value)}
           className="border p-2 rounded w-32"
         />
         <select value={role} onChange={e => setRole(e.target.value)} className="border p-2 rounded">
-          <option value="employee">Employee</option>
-          <option value="manager">Manager</option>
+          <option value="employee">{t("employee")}</option>
+          <option value="manager">{t("manager")}</option>
         </select>
-        <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">Add</button>
+        <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">{t("add")}</button>
       </form>
       {formError && <div className="text-red-500 mb-2">{formError}</div>}
       {isLoading ? (
-        <div>Loading...</div>
+        <div>{t("loading")}</div>
       ) : error ? (
         <div className="text-red-500">{String(error)}</div>
       ) : (
         <table className="w-full border">
           <thead>
             <tr className="bg-gray-100">
-              <th className="p-2 text-left">Name</th>
-              <th className="p-2 text-left">Username</th>
-              <th className="p-2 text-left">Role</th>
+              <th className="p-2 text-left">{t("name")}</th>
+              <th className="p-2 text-left">{t("username")}</th>
+              <th className="p-2 text-left">{t("role")}</th>
             </tr>
           </thead>
           <tbody>
@@ -136,8 +138,8 @@ const EmployeesPage = () => {
                     onChange={e => updateMutation.mutate({ id: emp.id, role: e.target.value, name: emp.name, username: emp.username, password: "" })}
                     className="border p-1 rounded"
                   >
-                    <option value="employee">Employee</option>
-                    <option value="manager">Manager</option>
+                    <option value="employee">{t("employee")}</option>
+                    <option value="manager">{t("manager")}</option>
                   </select>
                 </td>
                 <td className="p-2">
@@ -145,7 +147,7 @@ const EmployeesPage = () => {
                     className="bg-red-500 text-white px-2 py-1 rounded"
                     onClick={() => deleteMutation.mutate(emp.id)}
                   >
-                    Delete
+                    {t("delete")}
                   </button>
                 </td>
               </tr>

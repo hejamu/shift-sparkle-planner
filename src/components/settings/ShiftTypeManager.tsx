@@ -1,6 +1,6 @@
-
 import * as React from "react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export interface ShiftType {
   id: number;
@@ -43,6 +43,7 @@ const deleteShiftType = async (id: number): Promise<{ id: number }> => {
 };
 
 const ShiftTypeManager: React.FC = () => {
+  const { t } = useTranslation();
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -109,13 +110,10 @@ const ShiftTypeManager: React.FC = () => {
   return (
     <div className="mb-8">
       <div className="mb-4">
-        <h2 className="text-lg font-semibold">Shift Types</h2>
+        <h2 className="text-lg font-semibold">{t("shiftTypes")}</h2>
       </div>
-      {/* Add new shift type form */}
-      {/* Add shift type as a card at the end of the list */}
-      {/* ...existing code... */}
       {loading ? (
-        <div>Loading shift types...</div>
+        <div>{t("loadingShiftTypes")}</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {shiftTypes.map(st => (
@@ -134,38 +132,38 @@ const ShiftTypeManager: React.FC = () => {
                     type="color"
                     value={editColor}
                     onChange={e => setEditColor(e.target.value)}
-                    title="Card color"
+                    title={t("cardColor")}
                   />
                   <div className="flex gap-2">
                     <button
                       className="bg-green-500 text-white px-3 py-1 rounded"
                       onClick={() => handleUpdate(st.id)}
                     >
-                      Save
+                      {t("save")}
                     </button>
                     <button
                       className="bg-gray-300 text-gray-700 px-3 py-1 rounded"
                       onClick={() => setEditingId(null)}
                     >
-                      Cancel
+                      {t("cancel")}
                     </button>
                   </div>
                 </>
                   ) : (
                 <>
                   <div className="font-bold text-lg mb-1">{st.name}</div>
-                  <div className="text-gray-600 mb-2">Color: {st.color}</div>
+                  <div className="text-gray-600 mb-2">{t("colorLabel")}: {st.color}</div>
                   <button
                     className="absolute top-2 right-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-full p-2"
                     onClick={() => handleEdit(st)}
-                    title="Edit"
+                    title={t("edit")}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-2.828 0L9 13zm0 0V17m0 0H5m4 0h4" /></svg>
                   </button>
                   <button
                     className="absolute bottom-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-2"
                     onClick={() => handleDelete(st.id)}
-                    title="Delete"
+                    title={t("delete")}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                   </button>
@@ -178,7 +176,7 @@ const ShiftTypeManager: React.FC = () => {
             {!addOpen ? (
               <button
                 className="bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full p-3"
-                title="Add shift type"
+                title={t("addShiftType")}
                 onClick={() => {
                   setAddOpen(true);
                   setNewName("");
@@ -199,25 +197,24 @@ const ShiftTypeManager: React.FC = () => {
                 <input
                   className="border px-2 py-1 rounded"
                   type="text"
-                  placeholder="Shift type name"
+                  placeholder={t("shiftTypeName")}
                   value={newName}
                   onChange={e => setNewName(e.target.value)}
                   required
                 />
-                {/* duration removed - shifts now store end_time instead */}
                 <input
                   className="border px-2 py-1 rounded w-24"
                   type="color"
                   value={newColor}
                   onChange={e => setNewColor(e.target.value)}
-                  title="Card color"
+                  title={t("cardColor")}
                 />
                 <div className="flex gap-2">
                   <button
                     className="bg-blue-500 text-white px-4 py-1 rounded"
                     type="submit"
                   >
-                    Add
+                    {t("add")}
                   </button>
                   <button
                     className="bg-gray-300 text-gray-700 px-4 py-1 rounded"
@@ -229,7 +226,7 @@ const ShiftTypeManager: React.FC = () => {
                       setAddOpen(false);
                     }}
                   >
-                    Cancel
+                    {t("cancel")}
                   </button>
                 </div>
               </form>

@@ -28,13 +28,13 @@ const LoginPage: React.FC = () => {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || t('login_failed'));
+        setError(data.error || t('loginFailed'));
         return;
       }
       await invalidateUser();
       navigate(data.role === 'employee' ? '/schedule' : '/');
     } catch {
-      setError(t('network_error'));
+      setError(t('networkError'));
     }
   };
 

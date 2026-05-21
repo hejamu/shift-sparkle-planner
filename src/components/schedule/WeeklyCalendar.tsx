@@ -175,11 +175,11 @@ const WeeklyCalendar = ({ currentDate: externalDate, onDateChange }: WeeklyCalen
     setImportCount(0);
     try {
       const res = await fetch('/api/proxy/cinetixx-shows');
-      if (!res.ok) throw new Error('Failed to fetch shows from server proxy');
+      if (!res.ok) throw new Error(t("failedToFetchShows"));
       const data = await res.json();
       const shows: { start: string; end?: string | null }[] = data.shows || [];
       if (shows.length === 0) {
-        setImportError('No shows returned from proxy');
+        setImportError(t("noShowsReturned"));
         setImporting(false);
         return;
       }
@@ -232,12 +232,12 @@ const WeeklyCalendar = ({ currentDate: externalDate, onDateChange }: WeeklyCalen
       }
       setImportCount(successCount);
       const notes: string[] = [];
-      if (skippedCount > 0) notes.push(`${skippedCount} already imported`);
-      if (outOfWeekCount > 0) notes.push(`${outOfWeekCount} outside current week`);
+      if (skippedCount > 0) notes.push(t("shiftsAlreadyImported", { count: skippedCount }));
+      if (outOfWeekCount > 0) notes.push(t("shiftsOutsideCurrentWeek", { count: outOfWeekCount }));
       if (notes.length > 0) setImportError(notes.join('; '));
       setImporting(false);
     } catch (err: any) {
-      setImportError(err.message || String(err));
+      setImportError(err.message || t("failedToImport"));
       setImporting(false);
     }
   };

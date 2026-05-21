@@ -26,7 +26,7 @@ const EmployeeSettings = () => {
       <div className="max-w-2xl mx-auto py-8">
         <Card>
           <CardHeader>
-            <CardTitle>{t("employee_active_state")}</CardTitle>
+            <CardTitle>{t("employeeActiveState")}</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
