@@ -1,5 +1,9 @@
 services:
   frontend:
+    # Naming the image means `docker compose pull` works against GHCR (CI
+    # pushes there on every main commit). `docker compose build` still
+    # builds locally and tags into this name.
+    image: ${IMAGE_BASE:-ghcr.io/hejamu/shift-sparkle-planner}-frontend:${IMAGE_TAG:-latest}
     build: .
     ports:
       - "8080:80"
@@ -14,6 +18,7 @@ services:
       retries: 3
       start_period: 5s
   backend:
+    image: ${IMAGE_BASE:-ghcr.io/hejamu/shift-sparkle-planner}-backend:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.backend
