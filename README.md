@@ -94,9 +94,17 @@ Migrations run automatically on backend startup (idempotent; see
   terminating reverse proxy (Caddy with ACME is easiest) and the
   `secure` cookie flag will start to apply via `NODE_ENV=production`.
   The proxy must forward `X-Forwarded-Proto`.
-- **Backups.** The sqlite database lives in the `sqlite_data` named
-  volume. There is no built-in backup; schedule a `sqlite3 .backup` off-
-  host before this matters.
+- **Backups.** `scripts/backup.sh` snapshots the sqlite DB from the
+  running backend container using `sqlite3 .backup` (consistent under
+  writes), gzips it, and writes to `./backups/`. Old backups are pruned
+  after `KEEP_DAYS` (default 30). Cron example:
+
+  ```cron
+  0 3 * * *  /opt/shift-planner/scripts/backup.sh >> /var/log/shift-backup.log 2>&1
+  ```
+
+  Restore with `gunzip -c backups/shiftplanner-YYYYMMDDTHHMMSSZ.sqlite.gz > /data/shiftplanner.sqlite`
+  in the volume, then restart the backend.
 - **Rate limit.** 10 failed logins per IP per 15 min. Successful logins
   don't count.
 - **Logging.** JSON via pino in prod; cookies / `password` / `token`
