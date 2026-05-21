@@ -1,5 +1,5 @@
 # Backend (Express + sqlite) — multi-stage: build with dev deps, ship with prod-only deps.
-FROM node:20.18.0-slim AS builder
+FROM node:26.2.0-slim AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -11,7 +11,7 @@ RUN npx tsc -p tsconfig.backend.json
 RUN test -f dist/server/api.js || (echo "Build failed: dist/server/api.js not found" && ls -R dist && exit 1)
 
 
-FROM node:20.18.0-slim AS runtime
+FROM node:26.2.0-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
