@@ -3,6 +3,7 @@ import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import { db } from './db';
+import { logger } from './logger';
 
 export type Role = 'employee' | 'manager' | 'admin';
 export type SessionUser = { id: number; username: string; role: Role };
@@ -19,7 +20,7 @@ const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 1 week
 function requireSecret(): string {
   const secret = process.env.SESSION_SECRET;
   if (!secret) {
-    console.error('SESSION_SECRET environment variable is required');
+    logger.fatal('SESSION_SECRET environment variable is required');
     process.exit(1);
   }
   return secret;

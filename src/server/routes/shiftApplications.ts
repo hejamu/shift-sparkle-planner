@@ -127,7 +127,7 @@ export function registerShiftApplicationRoutes(app: Express) {
         message: 'Application submitted for approval',
       });
     } catch (err) {
-      console.error('POST /api/shift-applications failed:', err);
+      req.log.error({ err }, 'POST /api/shift-applications failed');
       res.status(500).json({ error: 'Failed to process application' });
     }
   });

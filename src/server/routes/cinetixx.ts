@@ -6,7 +6,7 @@ import { requireAuth, requireRole } from '../auth';
 const CINETIXX_URL = 'https://api.cinetixx.de/Services/CinetixxService.asmx/GetShowInfo?mandatorID=2208234164&auditid=2209573052';
 
 export function registerCinetixxRoutes(app: Express) {
-  app.get('/api/proxy/cinetixx-shows', requireAuth, requireRole('manager', 'admin'), async (_req: Request, res: Response) => {
+  app.get('/api/proxy/cinetixx-shows', requireAuth, requireRole('manager', 'admin'), async (req: Request, res: Response) => {
     try {
       const r = await fetch(CINETIXX_URL);
       if (!r.ok) return res.status(502).json({ error: 'Upstream request failed' });
@@ -71,7 +71,7 @@ export function registerCinetixxRoutes(app: Express) {
       }
       res.json({ shows: Array.from(uniqueMap.values()) });
     } catch (err) {
-      console.error('GET /api/proxy/cinetixx-shows failed:', err);
+      req.log.error({ err }, 'GET /api/proxy/cinetixx-shows failed');
       res.status(502).json({ error: 'Upstream request failed' });
     }
   });

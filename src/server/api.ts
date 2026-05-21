@@ -1,7 +1,9 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
+import pinoHttp from 'pino-http';
 import { initSchema } from './db';
 import { csrfProtection } from './csrf';
+import { logger } from './logger';
 import { registerAuthRoutes } from './auth';
 import { registerAdminRoutes } from './routes/admin';
 import { registerSettingsRoutes } from './routes/settings';
@@ -21,6 +23,16 @@ const PORT = Number(process.env.PORT) || 3001;
 const TRUST_PROXY = process.env.TRUST_PROXY ?? '1';
 app.set('trust proxy', TRUST_PROXY === 'false' ? false : Number.isNaN(Number(TRUST_PROXY)) ? TRUST_PROXY : Number(TRUST_PROXY));
 
+app.use(pinoHttp({
+  logger,
+  // Health checks would dominate the log otherwise.
+  autoLogging: { ignore: (req) => req.url === '/api/health' },
+  customLogLevel: (_req, res, err) => {
+    if (err || res.statusCode >= 500) return 'error';
+    if (res.statusCode >= 400) return 'warn';
+    return 'info';
+  },
+}));
 app.use(express.json({ limit: '64kb' }));
 app.use(cookieParser());
 
@@ -43,10 +55,10 @@ registerCinetixxRoutes(app);
 initSchema()
   .then(() => {
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`API server running on port ${PORT}`);
+      logger.info({ port: PORT }, 'API server running');
     });
   })
   .catch((err) => {
-    console.error('Failed to initialize database, refusing to start:', err);
+    logger.fatal({ err }, 'Failed to initialize database, refusing to start');
     process.exit(1);
   });

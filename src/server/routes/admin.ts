@@ -17,12 +17,12 @@ export function registerAdminRoutes(app: Express) {
     });
   });
 
-  app.post('/api/init-db', requireAuth, requireRole('admin'), async (_req: Request, res: Response) => {
+  app.post('/api/init-db', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
     try {
       await initSchema();
       res.json({ initialized: true });
     } catch (err) {
-      console.error('POST /api/init-db failed:', err);
+      req.log.error({ err }, 'POST /api/init-db failed');
       res.status(500).json({ initialized: false, error: 'Failed to initialize' });
     }
   });

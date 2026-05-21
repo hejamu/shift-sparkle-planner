@@ -1,6 +1,7 @@
 import * as sqlite3 from 'sqlite3';
 import * as path from 'path';
 import * as bcrypt from 'bcryptjs';
+import { logger } from './logger';
 
 export const DB_PATH = path.join('/data/shiftplanner.sqlite');
 export const REQUIRED_TABLES = ['users', 'shift_types', 'shifts', 'shift_applications', 'settings'] as const;
@@ -106,12 +107,12 @@ export async function runMigrations(): Promise<void> {
   if (hasUsers && applied.size === 0) {
     await dbRun(`INSERT INTO schema_migrations (name) VALUES (?)`, ['0001_initial']);
     applied.add('0001_initial');
-    console.log('Bootstrapped existing database: recorded migration 0001_initial as applied.');
+    logger.info('Bootstrapped existing database: recorded migration 0001_initial as applied.');
   }
 
   for (const m of MIGRATIONS) {
     if (applied.has(m.name)) continue;
-    console.log(`Applying migration ${m.name}...`);
+    logger.info({ migration: m.name }, 'Applying migration');
     const escapedName = m.name.replace(/'/g, "''");
     const wrapped = `BEGIN;\n${m.sql}\nINSERT INTO schema_migrations(name) VALUES('${escapedName}');\nCOMMIT;`;
     try {
@@ -120,7 +121,7 @@ export async function runMigrations(): Promise<void> {
       await dbExec('ROLLBACK').catch(() => undefined);
       throw new Error(`Migration ${m.name} failed: ${(err as Error).message}`);
     }
-    console.log(`Migration ${m.name} applied.`);
+    logger.info({ migration: m.name }, 'Migration applied');
   }
 }
 
@@ -134,7 +135,7 @@ export async function initSchema(): Promise<void> {
   if (!existingAdmin) {
     const defaultPassword = process.env.ADMIN_DEFAULT_PASSWORD || 'changeme';
     if (defaultPassword === 'changeme') {
-      console.warn('Seeding admin/admin with default password "changeme". Set ADMIN_DEFAULT_PASSWORD to override and rotate it immediately.');
+      logger.warn('Seeding admin/admin with default password "changeme". Set ADMIN_DEFAULT_PASSWORD to override and rotate it immediately.');
     }
     const hashed = await bcrypt.hash(defaultPassword, BCRYPT_ROUNDS);
     await dbRun(
