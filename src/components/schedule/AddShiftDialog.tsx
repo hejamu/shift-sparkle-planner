@@ -62,8 +62,8 @@ const AddShiftDialog = ({ children, selectedDate, onShiftAdded }: AddShiftDialog
   if (!shiftTypeRes.ok) throw new Error("Failed to fetch shift types");
   const shiftTypeData = await shiftTypeRes.json();
   setShiftTypes(shiftTypeData);
-      } catch (err: any) {
-        setError(err.message || "Failed to load data");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load data");
       }
       setLoading(false);
     }

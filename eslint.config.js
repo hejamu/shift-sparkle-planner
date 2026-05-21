@@ -23,4 +23,13 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  {
+    // Server interacts with sqlite which returns untyped rows. Allowing
+    // `any` is honest about the boundary; tightening would require zod or
+    // similar runtime validation. Tracked as a follow-up.
+    files: ["src/server/**/*.ts", "vite.config.ts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
 );

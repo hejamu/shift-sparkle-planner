@@ -56,8 +56,8 @@ const Administration: React.FC = () => {
       const res = await fetch(`/api/init-db`, { method: "POST" });
       if (!res.ok) throw new Error("Failed to initialize database");
       setDbExists(true);
-    } catch (err: any) {
-      setDbError(err.message);
+    } catch (err) {
+      setDbError(err instanceof Error ? err.message : "Failed to initialize");
     } finally {
       setDbInitLoading(false);
     }
@@ -94,7 +94,7 @@ const Administration: React.FC = () => {
     updateRoleMutation.mutate({ id, isManager: !isManager });
   };
 
-    const [shiftTypes, setShiftTypes] = useState<any[] | null>(null);
+    const [shiftTypes, setShiftTypes] = useState<{ id: number; name: string; color: string }[] | null>(null);
     useEffect(() => {
       fetch('/api/shift-types')
         .then(res => {
@@ -132,8 +132,8 @@ const Administration: React.FC = () => {
       await updateSetting("auto_assign_limit", autoAssignLimit);
       setAutoAssignSuccess(true);
       setTimeout(() => setAutoAssignSuccess(false), 2000);
-    } catch (err: any) {
-      setAutoAssignError(err.message);
+    } catch (err) {
+      setAutoAssignError(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setAutoAssignSaving(false);
     }
@@ -202,8 +202,8 @@ const Administration: React.FC = () => {
                     await dropAllTables();
                     setDbValid(false);
                     setDbExists(true);
-                  } catch (err: any) {
-                    setDbError(err.message);
+                  } catch (err) {
+                    setDbError(err instanceof Error ? err.message : "Failed to drop tables");
                   }
                 }}
               />

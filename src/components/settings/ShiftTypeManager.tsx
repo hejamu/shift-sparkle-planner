@@ -74,8 +74,8 @@ const ShiftTypeManager: React.FC = () => {
       setNewName("");
       setNewColor("#60a5fa");
       setError(null);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Operation failed");
     }
   };
 
@@ -92,8 +92,8 @@ const ShiftTypeManager: React.FC = () => {
       setShiftTypes(shiftTypes.map(st => st.id === id ? updated : st));
       setEditingId(null);
       setError(null);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Operation failed");
     }
   };
 
@@ -102,8 +102,8 @@ const ShiftTypeManager: React.FC = () => {
       await deleteShiftType(id);
       setShiftTypes(shiftTypes.filter(st => st.id !== id));
       setError(null);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Operation failed");
     }
   };
 

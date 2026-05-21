@@ -82,7 +82,7 @@ const WeeklyCalendar = ({ currentDate: externalDate, onDateChange }: WeeklyCalen
   });
 
   const getEmployeeName = (employeeId: string | number) => {
-    const emp = employees.find((e: any) => String(e.id) === String(employeeId));
+    const emp = employees.find((e) => String(e.id) === String(employeeId));
     return emp ? emp.name : "Unknown";
   };
   const getMyApplicationForShift = (shiftId: number) =>
@@ -102,7 +102,16 @@ const WeeklyCalendar = ({ currentDate: externalDate, onDateChange }: WeeklyCalen
     });
   };
 
-  const handleAddShift = async (shiftData: any) => {
+  type AddShiftFormData = {
+    employee?: string;
+    date: string;
+    time: string;
+    end_time: string;
+    shiftType: string | number;
+    notes?: string;
+  };
+
+  const handleAddShift = async (shiftData: AddShiftFormData) => {
     const employeeValue =
       !shiftData.employee || String(shiftData.employee).toLowerCase() === 'unassigned'
         ? null
@@ -158,8 +167,8 @@ const WeeklyCalendar = ({ currentDate: externalDate, onDateChange }: WeeklyCalen
         setApplySuccess(false);
         setWasAutoAssigned(false);
       }, 2000);
-    } catch (err: any) {
-      setApplyError(err.message || "Failed to apply for shift");
+    } catch (err) {
+      setApplyError(err instanceof Error ? err.message : "Failed to apply for shift");
       setApplyLoading(false);
     }
   };
@@ -202,7 +211,7 @@ const WeeklyCalendar = ({ currentDate: externalDate, onDateChange }: WeeklyCalen
           const dateStr = dt.toISOString().slice(0, 10);
           const timeStr = dt.toTimeString().slice(0, 5);
 
-          const exists = shifts.some((sh: any) => String(sh.date) === dateStr && String(sh.start_time) === timeStr);
+          const exists = shifts.some((sh) => String(sh.date) === dateStr && String(sh.start_time) === timeStr);
           if (exists) {
             skippedCount += 1;
             continue;
@@ -236,8 +245,8 @@ const WeeklyCalendar = ({ currentDate: externalDate, onDateChange }: WeeklyCalen
       if (outOfWeekCount > 0) notes.push(t("shiftsOutsideCurrentWeek", { count: outOfWeekCount }));
       if (notes.length > 0) setImportError(notes.join('; '));
       setImporting(false);
-    } catch (err: any) {
-      setImportError(err.message || t("failedToImport"));
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : t("failedToImport"));
       setImporting(false);
     }
   };

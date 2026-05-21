@@ -4,6 +4,7 @@ import { fetchShiftApplications, ShiftApplication } from "@/lib/shiftApplication
 import { fetchShifts } from "@/lib/shiftApi";
 import { fetchEmployees } from "@/lib/employeeApi";
 import { getISOWeek, getWeekEnd, getWeekStart } from "@/lib/week";
+import type { ShiftType } from "@/lib/shiftLayout";
 import { useShiftApplicationActions } from "@/hooks/use-shift-application-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,7 +53,7 @@ const ShiftApplicationsManager = ({ currentDate: externalDate, onDateChange }: S
     queryFn: fetchEmployees,
   });
 
-  const { data: shiftTypes = [] } = useQuery({
+  const { data: shiftTypes = [] } = useQuery<ShiftType[]>({
     queryKey: ["shiftTypes"],
     queryFn: async () => {
       const res = await fetch('/api/shift-types');
@@ -62,14 +63,14 @@ const ShiftApplicationsManager = ({ currentDate: externalDate, onDateChange }: S
   });
 
   const getEmployeeName = (id: number) => {
-    const emp = employees.find((e: any) => e.id === id);
+    const emp = employees.find((e) => e.id === id);
     return emp?.name || `Employee #${id}`;
   };
 
   const getShift = (id: number) => shifts.find((s) => s.id === id);
 
   const getShiftTypeName = (typeId: number) => {
-    const st = shiftTypes.find((t: any) => t.id === typeId);
+    const st = shiftTypes.find((t) => t.id === typeId);
     return st?.name || `Type #${typeId}`;
   };
 
@@ -288,7 +289,7 @@ const ShiftApplicationsManager = ({ currentDate: externalDate, onDateChange }: S
                         <div
                           className="w-1.5 self-stretch"
                           style={{
-                            background: shiftTypes.find((st: any) => st.id === shift.shift_type)?.color || '#60a5fa',
+                            background: shiftTypes.find((st) => st.id === shift.shift_type)?.color || '#60a5fa',
                           }}
                         />
                         <div className="flex-1 p-4 flex items-center justify-between">

@@ -76,8 +76,8 @@ const EmployeesPage = () => {
       setRole("employee");
       setUsername("");
       setPassword("");
-    } catch (err: any) {
-      setFormError(err.message || t("failedToAddEmployee"));
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : t("failedToAddEmployee"));
     }
   };
 
@@ -129,7 +129,7 @@ const EmployeesPage = () => {
             </tr>
           </thead>
           <tbody>
-            {employees.map((emp: any) => (
+            {employees.map((emp: { id: number; name: string; username: string; role?: string }) => (
               <tr key={emp.id} className="border-t">
                 <td className="p-2">{emp.name}</td>
                 <td className="p-2">{emp.username}</td>
