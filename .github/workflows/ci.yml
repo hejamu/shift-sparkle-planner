@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type-check (frontend)
+        run: npx tsc -p tsconfig.app.json --noEmit
+
+      - name: Type-check (backend)
+        run: npx tsc -p tsconfig.backend.json --noEmit
+
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true # lint baseline still has pre-existing issues; surface them without failing CI
+
+      - name: Test
+        run: npm test -- --run
+
+      - name: Build (frontend)
+        run: npm run build
+
+      - name: Build (backend)
+        run: npx tsc -p tsconfig.backend.json && test -f dist/server/api.js
