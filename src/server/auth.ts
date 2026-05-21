@@ -1,6 +1,7 @@
 import type { Express, NextFunction, Request, Response } from 'express';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 import { db } from './db';
 
 export type Role = 'employee' | 'manager' | 'admin';
@@ -54,8 +55,19 @@ export const requireRole = (...roles: Role[]) => (req: Request, res: Response, n
   next();
 };
 
+// Limit credential-stuffing: 10 login attempts per IP per 15 minutes.
+// Successful logins don't count against the limit.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  skipSuccessfulRequests: true,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts, please try again later.' },
+});
+
 export function registerAuthRoutes(app: Express) {
-  app.post('/api/login', (req: Request, res: Response) => {
+  app.post('/api/login', loginLimiter, (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
       return res.status(400).json({ error: 'Missing username or password' });
