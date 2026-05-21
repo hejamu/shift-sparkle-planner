@@ -41,6 +41,32 @@ export default async function defineViteConfig({ mode }: { mode: string }) {
         "@": path.resolve(__dirname, "./src"),
       },
     },
+    build: {
+      // Vendor split keeps the main bundle smaller and lets the browser cache
+      // chunks that rarely change (react / radix) across deploys. Each chunk
+      // is fetched in parallel — cold-cache load is similar, warm-cache load
+      // is much better.
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            react: ['react', 'react-dom', 'react-router-dom'],
+            radix: [
+              '@radix-ui/react-dialog',
+              '@radix-ui/react-alert-dialog',
+              '@radix-ui/react-select',
+              '@radix-ui/react-tabs',
+              '@radix-ui/react-tooltip',
+              '@radix-ui/react-popover',
+              '@radix-ui/react-dropdown-menu',
+              '@radix-ui/react-toast',
+            ],
+            query: ['@tanstack/react-query'],
+            i18n: ['i18next', 'react-i18next'],
+            icons: ['lucide-react'],
+          },
+        },
+      },
+    },
     test: {
       // Component tests need a DOM; server / pure-logic tests stay in node.
       // The pattern field uses the directory the test file sits in.
