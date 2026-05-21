@@ -5,7 +5,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useUserRole } from "@/hooks/use-user";
-import Index from "./pages/Index";
 import Schedule from "./pages/Schedule";
 import Administration from "./pages/Administration";
 import LoginPage from "./pages/Login";
@@ -30,7 +29,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/" element={<EmployeeOnly><Index /></EmployeeOnly>} />
+            <Route path="/" element={<Navigate to="/schedule" replace />} />
             <Route path="/schedule" element={<Schedule />} />
             <Route path="/administration" element={<EmployeeOnly><Administration /></EmployeeOnly>} />
             <Route path="/employees" element={<EmployeeOnly><EmployeesPage /></EmployeeOnly>} />

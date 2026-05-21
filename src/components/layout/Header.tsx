@@ -1,4 +1,4 @@
-import { Calendar, Users, BarChart3, Settings } from "lucide-react";
+import { Calendar, Users, Settings } from "lucide-react";
 import LanguageSwitcher from "../LanguageSwitcher";
 import { Button } from "@/components/ui/button";
 import { useLocation, Link } from "react-router-dom";
@@ -20,7 +20,6 @@ const Header = () => {
       ];
     }
     return [
-      { icon: BarChart3, label: t("dashboard"), path: "/" },
       { icon: Calendar, label: t("schedule"), path: "/schedule" },
       { icon: Users, label: t("employees"), path: "/employees" },
       { icon: Settings, label: t("administration"), path: "/administration" },
