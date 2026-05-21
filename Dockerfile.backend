@@ -1,5 +1,5 @@
-# Backend (Express + sqlite) — single-stage for now; switched to multi-stage in the next commit.
-FROM node:20 AS backend
+# Backend (Express + sqlite) — multi-stage: build with dev deps, ship with prod-only deps.
+FROM node:20 AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -8,9 +8,23 @@ RUN npm ci
 COPY tsconfig.json tsconfig.backend.json ./
 COPY ./src ./src
 RUN npx tsc -p tsconfig.backend.json
-
-# Smoke-check: ensure compiled server entrypoint exists.
 RUN test -f dist/server/api.js || (echo "Build failed: dist/server/api.js not found" && ls -R dist && exit 1)
+
+
+FROM node:20-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Install only production dependencies — sqlite3 builds a native binding,
+# so keep a build toolchain available only for the install step.
+COPY package.json package-lock.json ./
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 build-essential \
+  && npm ci --omit=dev \
+  && apt-get purge -y --auto-remove python3 build-essential \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/dist ./dist
 
 EXPOSE 3001
 CMD ["node", "dist/server/api.js"]
