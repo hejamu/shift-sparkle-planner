@@ -1,5 +1,5 @@
 # Frontend (Vite + React) — multi-stage build to a static nginx image.
-FROM node:20 AS builder
+FROM node:20.18.0-slim AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json ./

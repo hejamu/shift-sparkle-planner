@@ -21,8 +21,9 @@ export function registerAdminRoutes(app: Express) {
     try {
       await initSchema();
       res.json({ initialized: true });
-    } catch (err: any) {
-      res.status(500).json({ initialized: false, error: err?.message || 'Failed to initialize' });
+    } catch (err) {
+      console.error('POST /api/init-db failed:', err);
+      res.status(500).json({ initialized: false, error: 'Failed to initialize' });
     }
   });
 

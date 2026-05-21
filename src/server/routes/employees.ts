@@ -27,8 +27,9 @@ export function registerEmployeeRoutes(app: Express) {
         [name, username, hashed, roleValue],
       );
       res.json({ id: result.lastID, name, username, role: roleValue });
-    } catch (err: any) {
-      res.status(500).json({ error: err?.message || 'Failed to add user' });
+    } catch (err) {
+      console.error('POST /api/employees failed:', err);
+      res.status(500).json({ error: 'Failed to add user' });
     }
   });
 
@@ -50,8 +51,9 @@ export function registerEmployeeRoutes(app: Express) {
         );
       }
       res.json({ id, role: roleValue, name, username });
-    } catch (err: any) {
-      res.status(500).json({ error: err?.message || 'Failed to update user' });
+    } catch (err) {
+      console.error('PUT /api/employees/:id failed:', err);
+      res.status(500).json({ error: 'Failed to update user' });
     }
   });
 

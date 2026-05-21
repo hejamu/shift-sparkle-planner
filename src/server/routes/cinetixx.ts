@@ -70,8 +70,9 @@ export function registerCinetixxRoutes(app: Express) {
         if (!uniqueMap.has(key)) uniqueMap.set(key, r);
       }
       res.json({ shows: Array.from(uniqueMap.values()) });
-    } catch (err: any) {
-      res.status(500).json({ error: err?.message || 'Failed to proxy' });
+    } catch (err) {
+      console.error('GET /api/proxy/cinetixx-shows failed:', err);
+      res.status(502).json({ error: 'Upstream request failed' });
     }
   });
 }
