@@ -12,7 +12,7 @@ import ShiftEntry from "./ShiftEntry";
 import { addShift, deleteShift, fetchShifts, Shift, updateShift } from "@/lib/shiftApi";
 import { fetchEmployees } from "@/lib/employeeApi";
 import { applyForShift, fetchShiftApplications, ShiftApplication } from "@/lib/shiftApplicationApi";
-import { getISOWeek, getWeekStart } from "@/lib/week";
+import { getISOWeek, getWeekEnd, getWeekStart } from "@/lib/week";
 import { layoutShiftsForWeek, ShiftType } from "@/lib/shiftLayout";
 import { useUser, useUserRole } from "@/hooks/use-user";
 
@@ -188,14 +188,21 @@ const WeeklyCalendar = ({ currentDate: externalDate, onDateChange }: WeeklyCalen
         return;
       }
 
+      const weekEnd = getWeekEnd(currentDate);
+
       let successCount = 0;
       let skippedCount = 0;
+      let outOfWeekCount = 0;
       for (const s of shows) {
         try {
           const startIso = s.start;
           if (!startIso) continue;
           const dt = new Date(startIso);
           if (isNaN(dt.getTime())) continue;
+          if (dt < weekStart || dt > weekEnd) {
+            outOfWeekCount += 1;
+            continue;
+          }
           const dateStr = dt.toISOString().slice(0, 10);
           const timeStr = dt.toTimeString().slice(0, 5);
 
@@ -228,11 +235,10 @@ const WeeklyCalendar = ({ currentDate: externalDate, onDateChange }: WeeklyCalen
         }
       }
       setImportCount(successCount);
-      if (skippedCount > 0) {
-        setImportError((prev) =>
-          prev ? `${prev} (${skippedCount} shows skipped as already imported)` : `${skippedCount} shows skipped as already imported`,
-        );
-      }
+      const notes: string[] = [];
+      if (skippedCount > 0) notes.push(`${skippedCount} already imported`);
+      if (outOfWeekCount > 0) notes.push(`${outOfWeekCount} outside current week`);
+      if (notes.length > 0) setImportError(notes.join('; '));
       setImporting(false);
     } catch (err: any) {
       setImportError(err.message || String(err));
