@@ -18,12 +18,7 @@ const Schedule = () => {
       <Header />
       <main className="container mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">{t("schedule")}</h1>
-            <p className="text-muted-foreground mt-1">
-              {t("manage_shifts")}
-            </p>
-          </div>
+          <h1 className="text-3xl font-bold text-foreground">{t("schedule")}</h1>
         </div>
 
         {isManagerOrAdmin ? (
