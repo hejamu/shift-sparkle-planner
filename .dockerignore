@@ -1,0 +1,19 @@
+.git
+.gitignore
+.github
+node_modules
+dist
+.DS_Store
+
+# Local env files — never bake into images
+.env
+.env.local
+.env.*.local
+
+# Logs and editor cruft
+*.log
+.vscode
+.idea
+
+# Backup/scratch
+backup
