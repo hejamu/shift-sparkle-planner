@@ -112,8 +112,7 @@ Migrations run automatically on backend startup (idempotent; see
 
 ## License
 
-Not yet decided. Treat as "all rights reserved" until a `LICENSE` file
-lands.
+GPLv3 — see [LICENSE](LICENSE).
 
 ## See also
 
