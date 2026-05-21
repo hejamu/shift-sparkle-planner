@@ -1,11 +1,18 @@
-version: '3.8'
 services:
   frontend:
     build: .
     ports:
       - "8080:80"
+    restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
   backend:
     build:
       context: .
@@ -15,10 +22,18 @@ services:
       - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET is required}
       - ADMIN_DEFAULT_PASSWORD=${ADMIN_DEFAULT_PASSWORD:-changeme}
       - NODE_ENV=${NODE_ENV:-production}
+    # 3001 is also reachable on the host so the dev vite server (run outside docker)
+    # can proxy /api → http://localhost:3001. Drop this mapping in pure-prod.
     ports:
       - "3001:3001"
     restart: unless-stopped
     volumes:
       - sqlite_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3001/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 30s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
 volumes:
   sqlite_data:

@@ -16,6 +16,8 @@ const PORT = Number(process.env.PORT) || 3001;
 app.use(express.json());
 app.use(cookieParser());
 
+app.get('/api/health', (_req, res) => res.json({ ok: true }));
+
 registerAuthRoutes(app);
 registerAdminRoutes(app);
 registerSettingsRoutes(app);
