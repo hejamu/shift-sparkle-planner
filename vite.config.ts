@@ -41,5 +41,16 @@ export default async function defineViteConfig({ mode }: { mode: string }) {
         "@": path.resolve(__dirname, "./src"),
       },
     },
+    test: {
+      // Component tests need a DOM; server / pure-logic tests stay in node.
+      // The pattern field uses the directory the test file sits in.
+      environmentMatchGlobs: [
+        ['src/components/**', 'jsdom'],
+        ['src/__tests__/components/**', 'jsdom'],
+      ],
+      environment: 'node',
+      globals: true,
+      setupFiles: ['src/__tests__/vitest.setup.ts'],
+    },
   };
 }
