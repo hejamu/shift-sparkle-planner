@@ -25,8 +25,12 @@ export default async function defineViteConfig({ mode }: { mode: string }) {
       host: "::",
       port: 8080,
       proxy: {
+        // Dev only. `npm run dev` runs on the host, so the backend is reached
+        // via the host port mapping (docker-compose exposes backend on 3001).
+        // In production, nginx proxies /api → backend:3001 inside the docker
+        // network (see nginx.conf); vite is not involved.
         '/api': {
-          target: 'http://backend:3001',
+          target: 'http://localhost:3001',
           changeOrigin: true,
         },
       },
